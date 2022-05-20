@@ -1,2 +1,17 @@
 fig:dora
 fig:alec
+fig:plot11
+fig:plot12
+fig:plot21
+fig:plot22
+fig:plot31
+deliveries-and-births
+number-of-deliveries-live-births-and-stillbirths-to-residents-by-year-nova-scotia-2010-2019
+number-of-births-by-year-nova-scotia-2010-2019
+number-of-births-by-outcome-sex-and-year-nova-scotia-2010-2019
+deliveries-resulting-from-assisted-reproductive-technology-nova-scotia-2010-2019
+perinatal-and-infant-mortality
+perinatal-mortality-by-year-nova-scotia-2010-2019
+infant-mortality-by-year-nova-scotia-2010-2019
+determinants-of-maternal-fetal-and-infant-health
+maternal-age-by-year-nova-scotia-2010-2019

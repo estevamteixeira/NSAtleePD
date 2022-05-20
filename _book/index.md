@@ -1,8 +1,11 @@
 --- 
 title: 'Nova Scotia Atlee Perinatal Database'
+params:
+  year1: 2010
+  year2: 2019
 subtitle: 'Report of Indicators: 2010-2019'
 author: 'Estevam Teixeira'
-date: '2022-05-16'
+date: '2022-05-20'
 site: bookdown::bookdown_site
 output: bookdown::bs4_book
 documentclass: krantz
@@ -26,7 +29,8 @@ This is the online home of the *Nova Scotia Atlee Perinatal Database*, a report 
   
 **Note**: Previous editions of this report can be found on the [RCP](http://rcp.nshealth.ca/publications/nsapd-report-indicators-2010-2019) web site.
 
-Inspired by the Free and Open Source Software movement ([FOSS](https://en.unesco.org/freeandopensourcesoftware)), the code and prose underlying this report are open, ensuring that the content is reproducible, transparent, and accessible
+Inspired by the Free and Open Source Software movement ([FOSS](https://en.unesco.org/freeandopensourcesoftware)), the code and prose underlying this report are open, ensuring that the content is reproducible, transparent, and accessible.
+
 Hosting the source code on [GitHub](https://github.com/estevamteixeira/NSAtleePD/) allows anyone to interact with the project by opening issues or contributing new content and typo fixes for the benefit of everyone.
 
 [![](https://img.shields.io/github/stars/estevamteixeira/NSAtleePD?style=for-the-badge)](https://github.com/estevamteixeira/NSAtleePD)
@@ -34,7 +38,7 @@ Hosting the source code on [GitHub](https://github.com/estevamteixeira/NSAtleePD
 
 The online version of the report is hosted at [rcp.nshealth.ca/publications](http://rcp.nshealth.ca/publications/nsapd-report-indicators-2010-2019).
 
-This version of the book was built on 2022-05-16.
+This version of the book was built on 2022-05-20.
 
 ## Supporting the project {-}
 
@@ -47,7 +51,7 @@ If you find the report useful, please support it by:
 
 # Dedication {-}
 
-We would like to honour two neonatologists whom we have lost since our last edition of the Nova Scotia Perinatal Database Report: Drs. Dora A. Stinson and Alexander C. Allen. Both of these physicians worked steadily and tirelessly to improve the health of babies in the province through the clinical care they administered, first at the Grace Maternity Hospital and later at the IWK Health Centre; research; and teaching, mentoring and supporting medical trainees, researchers, and junior faculty members. We will miss them, but will feel their impact forever as we remember their dedication and humour, and do our utmost to build on what they worked so hard to accomplish for the health and wellbeing of Nova Scotians.
+We would like to honour two neonatologists whom we have lost since our last edition of the Nova Scotia Perinatal Database Report: Drs. Dora A. Stinson and Alexander C. Allen. Both of these physicians worked steadily and tirelessly to improve the health of babies in the province through the clinical care they administered, first at the Grace Maternity Hospital and later at the IWK Health Centre; research; and teaching, mentoring and supporting medical trainees, researchers, and junior faculty members. We will miss them, but will feel their impact forever as we remember their dedication and humour, and do our utmost to build on what they worked so hard to accomplish for the health and well being of Nova Scotians.
 
 **Dr. Dora Stinson, MD, FRCPC, FAAP (1939-2020)** was actively involved in every aspect of neonatal medicine for many years, in research, administration and directly in clinical treatment of children. Dr. Stinson was well known locally and nationally as a skilled physician, a dedicated teacher and mentor, and a valued colleague. She acted as the Neonatal Clinical Advisor for the Reproductive Care Program for several years, and provided thoughtful input on several of the indicators shown herein.
 
@@ -67,7 +71,7 @@ We would like to honour two neonatologists whom we have lost since our last edit
 
 This Nova Scotia Atlee Perinatal Database Report was developed and prepared by members of the Perinatal Epidemiology Research Unit (PERU) in collaboration with the Reproductive Care Program (RCP) of Nova Scotia. All members of RCP provided valuable input, but we would like to especially acknowledge John Fahey (Research Analyst), Becky Attenborough (Manager), Leeanne Lauzon (Perinatal Nurse Consultant), and Irene Gagnon (Clinical Data Coordinator). We would also like to thank Alexa MacDonald, who helped to compile and edit the current report. Of course, all of the health information professionals, health care providers, and administrators at participating hospitals are invaluable to maintaining the high quality data found within the Atlee Perinatal Database.
 
-**Members of the Perinatal Epidemiology Research Unit Departments of Obstetrics & Gynaecology and Pediatrics **
+**Members of the Perinatal Epidemiology Research Unit Departments of Obstetrics & Gynaecology and Pediatrics**
 
 - Azar Mehrabadi, PhD, Assistant Professor
 - Stefan Kuhle, MD, PhD, Associate Professor

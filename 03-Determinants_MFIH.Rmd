@@ -1,0 +1,112 @@
+---
+params:
+  year1: 2010
+  year2: 2019
+fig.caption: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  message = FALSE, 
+  warning = FALSE,
+  fig.pos = "h", 
+  out.extra = "",
+  out.width = '90%',
+  fig.align = 'center',
+  eval.after = "fig.cap")
+
+pckgs <- c('tidyverse', 'knitr', 'scales','janitor',
+           'kableExtra', 'formattable','data.table',
+           'forcats','lubridate', 'anytime','reactable',
+           'htmltools', 'plotly','purrr')
+# for (pp in `pckgs`)00/870 { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(pckgs, character.only = TRUE)
+## data input
+
+# add data
+dta <- readr::read_csv("data/NSAtleePD.csv") %>%
+  setDT() %>%
+  .[data.table::between(BrthYear, params$year1, params$year2), ]
+```
+
+<!-- # (PART) Deliveries and Births {-} -->
+
+# Determinants of Maternal, Fetal, and Infant Health
+
+## Maternal age by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)`
+
+```{r plot31, fig.cap= paste('Perinatal mortality by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+               DMMATAGE)] %>%
+  .[, `:=` (matcat = fifelse(DMMATAGE < 20, 1,
+                     fifelse(DMMATAGE >= 35, 3, 2
+                              )))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, matcat)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (matcat = factor(matcat,
+                                   levels = c(1,2,3),
+                                   labels = c("age < 20",
+                                              "20 \u2264 age < 35",
+                                              "\u2265 35")))]
+
+## getting color for plotting
+
+pal <- c("age < 20" = "#1b9e77",
+         #"20 \u2264 age < 35" = "#d95f02",
+         "\u2265 35" = "#7570b3")
+
+plot <- ggplot(data = dta1[!matcat %in% c("20 \u2264 age < 35")],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = matcat,
+                   text =paste(matcat,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                               )
+                   )
+               ) +
+  geom_point(aes(color = matcat, fill = matcat, shape = matcat)) +
+  geom_line(aes(color = matcat, fill = matcat),
+            alpha = 0.65) +
+# Specifying colors by cohortNumber
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15, 16)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = '% of deliveries', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.35),
+                 font = list(face = "bold", size = 10))
+```

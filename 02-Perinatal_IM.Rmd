@@ -1,0 +1,353 @@
+---
+params:
+  year1: 2010
+  year2: 2019
+fig.caption: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  message = FALSE, 
+  warning = FALSE,
+  fig.pos = "h", 
+  out.extra = "",
+  out.width = '90%',
+  fig.align = 'center',
+  eval.after = "fig.cap")
+
+pckgs <- c('tidyverse', 'knitr', 'scales','janitor',
+           'kableExtra', 'formattable','data.table',
+           'forcats','lubridate', 'anytime','reactable',
+           'htmltools', 'plotly','purrr')
+# for (pp in `pckgs`)00/870 { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(pckgs, character.only = TRUE)
+## data input
+
+# add data
+dta <- readr::read_csv("data/NSAtleePD.csv") %>%
+  setDT() %>%
+  .[data.table::between(BrthYear, params$year1, params$year2), ]
+```
+
+<!-- # (PART) Deliveries and Births {-} -->
+
+# Perinatal and Infant Mortality
+
+## Perinatal mortality by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)`
+
+```{r plot21, fig.cap= paste('Perinatal mortality by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- unique(dta[, .(BrthYear,
+               BTOUTCOM,
+               DIFINOUT,
+               BTSEX)] %>%
+  .[!tolower(BTSEX) %in% "a"] %>%
+  .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & !is.na(BTOUTCOM),
+                              BTOUTCOM,
+                              DIFINOUT))] %>%
+  #.[!tolower(babyout) %in% c("pid")] %>%
+  .[, `:=` (perimort = fifelse(BTOUTCOM %in% c("FTD"), 1,
+                               fifelse(BTOUTCOM %in% c("END"), 2, 0)))] %>%
+  .[, `:=` (perimortT = .N), by = list(BrthYear, perimort)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 1000*perimortT/dlv)] %>%
+  .[!perimort %in% 0, .(BrthYear, dlv, perimort, perimortT, rate)])
+
+temp <- unique(dta1) %>%
+  .[,`:=` (perimort = 3,
+           perimortT = sum(perimortT),
+           rate = sum(rate)), by = list(BrthYear)] 
+  
+dta1 <- unique(rbind(dta1, temp))[,
+            `:=` (perimort = factor(perimort,
+                                   levels = c(1,2,3),
+                                   labels = c("Stillbirth",
+                                              "Early neonatal mortality",
+                                              "Total perinatal mortality")))]
+
+## getting color for plotting
+
+pal <- c("Stillbirth" = "#1b9e77",
+         "Early neonatal mortality" = "#d95f02",
+         "Total perinatal mortality" = "#7570b3")
+
+plot <- ggplot(data = dta1,
+               aes(x = BrthYear,
+                   y = rate,
+                   group = perimort,
+                   text =paste(perimort,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(dlv, accuracy = 1),
+                               "<br>Rate per 1000 births:" , scales::comma(rate, accuracy = .1)
+                               )
+                   )
+               ) +
+  geom_point(aes(color = perimort, fill = perimort, shape = perimort)) +
+  geom_line(aes(color = perimort, fill = perimort),
+            alpha = 0.65) +
+# Specifying colors by cohortNumber
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15, 16, 17)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::comma_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = 'Rate per 1000 births', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.35),
+                 font = list(face = "bold", size = 10))
+```
+
+```{r tbl21}
+tbl <- unique(dta[, .(BrthYear,
+               BTOUTCOM,
+               DIFINOUT,
+               BTSEX)] %>%
+  .[!tolower(BTSEX) %in% "a"] %>%
+  .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & !is.na(BTOUTCOM),
+                              BTOUTCOM,
+                              DIFINOUT))] %>%
+  .[, `:=` (perimort = fifelse(tolower(babyout) %in% c("ftd"), 1,
+                       fifelse(tolower(babyout) %in% c("end"), 2, 
+                        fifelse(tolower(babyout) %in% c("pid"), 3, 0))))] %>%
+  .[, `:=` (perimortT = .N), by = list(BrthYear, perimort)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[!perimort %in% 3] %>%
+  .[, `:=` (rate = 1000*perimortT/dlv)] %>%
+  .[!perimort %in% 0, .(BrthYear, dlv, perimort, perimortT, rate)])
+
+temp <- unique(tbl) %>%
+  .[,`:=` (perimort = 3,
+           perimortT = sum(perimortT),
+           rate = sum(rate)), by = list(BrthYear)] 
+  
+tbl <- unique(rbind(tbl, temp))[,
+            `:=` (perimort = factor(perimort,
+                                   levels = c(1,2,3),
+                                   labels = c("Stillbirth",
+                                              "Early neonatal mortality",
+                                              "Total perinatal mortality")))] %>%
+  melt(measure.vars = c("dlv", "perimortT", "rate")) %>%
+  .[!tolower(variable) %in% c("perimortt")] %>%
+  .[, `:=` (perimort = factor(fifelse(tolower(variable) %in% "dlv",
+                               "# births", as.character(perimort))))] %>%
+  .[, .(BrthYear, perimort, value)] %>%
+  unique() %>%
+  dcast(perimort ~ BrthYear, value.var = "value")
+
+coln <- names(tbl)
+coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.2f%%", "%1.2f%%", "%1.2f%%")))
+
+names(tbl) <- coln
+tbl[,1] <- factor(tbl[,1],labels = c("# births","Stillbirth","Early neonatal mortality", "Total perinatal mortality"))
+
+knitr::kable(tbl, 
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12) %>%
+kableExtra::group_rows("Rate per 1000 births", start_row = 2, end_row = 4) %>%
+kableExtra::add_footnote(label = c("Sex could not be determined in some infants and these infants are not included in the categories.",
+                                   "Note: Stillbirth refers to the complete expulsion or extraction from its mother after at least 20 weeks pregnancy, or after attaining a weight of 500 g or more, of a fetus in whom, after such expulsion or extraction, there is no breathing, beating of the heart, pulsation of the umbilical cord, or unmistakable movement of voluntary muscle. Early neonatal mortality refers to the death of a liveborn infant, occurring up to the sixth completed day of life (6 days, 23 hours and 59 minutes). Perinatal mortality includes both stillbirths and early neonatal deaths."))
+```
+
+## Infant mortality by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)`
+
+```{r plot22, fig.cap= paste('Infant mortality by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+# select desired variables
+# create baby outcome
+# count total infant mortality by group
+dta1 <- unique(dta[, .(BrthYear,
+               BTOUTCOM,
+               DIFINOUT,
+               BTSEX)] %>%
+  .[!tolower(BTSEX) %in% "a"] %>%
+  .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & !is.na(BTOUTCOM),
+                              BTOUTCOM,
+                              DIFINOUT))] %>%
+  #.[!tolower(babyout) %in% c("pid")] %>%
+  .[, `:=` (infmort = fifelse(tolower(babyout) %in% c("lvd"), 0,
+                      fifelse(tolower(babyout) %in% c("end"), 2, 
+                      fifelse(tolower(babyout) %in% c("pid"), 3, 1))))] %>%
+  .[, `:=` (infmortT = .N), by = list(BrthYear, infmort)]) %>%
+  .[,.(BrthYear, infmort, infmortT)]
+
+# get the total number of live births
+lb <- unique(dta1[infmort %in% 0, .(BrthYear, infmortT)]) %>%
+  data.table::setnames(old = "infmortT", new = "dlv")
+
+# remove the live births and post-infant death groups from data
+dta1 <- dta1[!infmort %in% c(0, 3)]
+
+# merge the total live births
+# compute the rate
+dta1 <- merge(dta1, lb, by = "BrthYear") %>%
+  .[, `:=` (rate = 1000*infmortT/dlv)]
+
+# compute 
+temp <- unique(dta1) %>%
+  .[!infmort %in% 0] %>%
+  .[,`:=` (infmort = 3,
+           infmortT = sum(infmortT),
+           rate = sum(rate)), by = list(BrthYear)] 
+  
+dta1 <- unique(rbind(dta1, temp))[,
+            `:=` (infmort = factor(infmort,
+                                   levels = c(1,2,3),
+                                   labels = c("Neonatal mortality",
+                                              "Postneonatal mortality",
+                                              "Total infant mortality")))]
+
+## getting color for plotting
+
+pal <- c("Neonatal mortality" = "#1b9e77",
+         "Postneonatal mortality" = "#d95f02",
+         "Total infant mortality" = "#7570b3")
+
+plot <- ggplot(data = dta1,
+               aes(x = BrthYear,
+                   y = rate,
+                   group = infmort,
+                   text =paste(infmort,
+                               "<br>Year:", BrthYear,
+                               "<br># live births:", scales::comma(dlv, accuracy = 1),
+                               "<br>Rate per 1000 live births:" , scales::comma(rate, accuracy = .1)
+                               )
+                   )
+               ) +
+  geom_point(aes(color = infmort, fill = infmort, shape = infmort)) +
+  geom_line(aes(color = infmort, fill = infmort),
+            alpha = 0.65) +
+# Specifying colors by cohortNumber
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15, 16, 17)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::comma_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = 'Rate per 1000 live births', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.35),
+                 font = list(face = "bold", size = 10))
+```
+
+```{r tbl22}
+tbl <- unique(dta[, .(BrthYear,
+               BTOUTCOM,
+               DIFINOUT,
+               BTSEX)] %>%
+  .[!tolower(BTSEX) %in% "a"] %>%
+  .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & !is.na(BTOUTCOM),
+                              BTOUTCOM,
+                              DIFINOUT))] %>%
+  #.[!tolower(babyout) %in% c("pid")] %>%
+  .[, `:=` (infmort = fifelse(tolower(babyout) %in% c("lvd"), 0,
+                      fifelse(tolower(babyout) %in% c("end"), 2, 
+                      fifelse(tolower(babyout) %in% c("pid"), 3, 1))))] %>%
+  .[, `:=` (infmortT = .N), by = list(BrthYear, infmort)]) %>%
+  .[,.(BrthYear, infmort, infmortT)]
+
+# get the total number of live births
+lb <- unique(tbl[infmort %in% 0, .(BrthYear, infmortT)]) %>%
+  data.table::setnames(old = "infmortT", new = "dlv")
+
+# remove the live births and post-infant death groups from data
+tbl <- tbl[!infmort %in% c(0, 3)]
+
+# merge the total live births
+# compute the rate
+tbl <- merge(tbl, lb, by = "BrthYear") %>%
+  .[, `:=` (rate = 1000*infmortT/dlv)]
+
+# compute 
+temp <- unique(tbl) %>%
+  .[!infmort %in% 0] %>%
+  .[,`:=` (infmort = 3,
+           infmortT = sum(infmortT),
+           rate = sum(rate)), by = list(BrthYear)] 
+  
+tbl <- unique(rbind(tbl, temp))[,
+            `:=` (infmort = factor(infmort,
+                                   levels = c(1,2,3),
+                                   labels = c("Neonatal mortality",
+                                              "Postneonatal mortality",
+                                              "Total infant mortality")))] %>%
+  melt(measure.vars = c("dlv", "infmortT", "rate")) %>%
+  .[!tolower(variable) %in% c("infmortt")] %>%
+  .[, `:=` (infmort = factor(fifelse(tolower(variable) %in% "dlv",
+                               "# live births", as.character(infmort))))] %>%
+  .[, .(BrthYear, infmort, value)] %>%
+  unique() %>%
+  dcast(infmort ~ BrthYear, value.var = "value")
+
+coln <- names(tbl)
+coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.2f%%", "%1.2f%%", "%1.2f%%")))
+
+names(tbl) <- coln
+tbl[,1] <- factor(tbl[,1],labels = c("# live births","Neonatal mortality", "Postneonatal mortality", "Total infant mortality"))
+
+knitr::kable(tbl, 
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12) %>%
+kableExtra::group_rows("Rate per 1000 live births", start_row = 2, end_row = 4) %>%
+kableExtra::add_footnote(label = c("Ascertainment of postneonatal deaths for births occurring in 2019 is not yet complete.",
+                                   "Note: Neonatal mortality refers to the death of a liveborn infant, occurring up to the 27th completed day of life (27 days, 23 hours and 59 minutes). Postneonatal mortality denotes the death of a liveborn infant weighing 500 g or more at birth, occurring from 28 days to 1 year of life. Infant mortality encompasses both neonatal and postneonatal mortality, that is, the death of a liveborn infant occurring within the first year of life."))
+```

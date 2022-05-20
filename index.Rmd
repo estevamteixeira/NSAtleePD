@@ -1,6 +1,9 @@
 --- 
 title: 'Nova Scotia Atlee Perinatal Database'
-subtitle: 'Report of Indicators: 2010-2019'
+params:
+  year1: 2010
+  year2: 2019
+subtitle: 'Report of Indicators: `r paste0(params$year1,"-",params$year2)`'
 author: 'Estevam Teixeira'
 date: '`r Sys.Date()`'
 site: bookdown::bookdown_site
