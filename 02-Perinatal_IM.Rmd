@@ -49,8 +49,11 @@ dta1 <- unique(dta[, .(BrthYear,
                               BTOUTCOM,
                               DIFINOUT))] %>%
   #.[!tolower(babyout) %in% c("pid")] %>%
-  .[, `:=` (perimort = fifelse(BTOUTCOM %in% c("FTD"), 1,
-                               fifelse(BTOUTCOM %in% c("END"), 2, 0)))] %>%
+  .[, `:=` (perimort = fcase(
+    BTOUTCOM %in% c("FTD"), 1,
+    BTOUTCOM %in% c("END"), 2, 
+    default = 0
+    ))] %>%
   .[, `:=` (perimortT = .N), by = list(BrthYear, perimort)] %>%
   .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = 1000*perimortT/dlv)] %>%
@@ -78,6 +81,9 @@ plot <- ggplot(data = dta1,
                aes(x = BrthYear,
                    y = rate,
                    group = perimort,
+                   color = perimort,
+                   shape = perimort,
+                   fill = perimort,
                    text =paste(perimort,
                                "<br>Year:", BrthYear,
                                "<br># births:", scales::comma(dlv, accuracy = 1),
@@ -131,9 +137,12 @@ tbl <- unique(dta[, .(BrthYear,
   .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & !is.na(BTOUTCOM),
                               BTOUTCOM,
                               DIFINOUT))] %>%
-  .[, `:=` (perimort = fifelse(tolower(babyout) %in% c("ftd"), 1,
-                       fifelse(tolower(babyout) %in% c("end"), 2, 
-                        fifelse(tolower(babyout) %in% c("pid"), 3, 0))))] %>%
+  .[, `:=` (perimort = fcase(
+    tolower(babyout) %in% c("ftd"), 1,
+    tolower(babyout) %in% c("end"), 2, 
+    tolower(babyout) %in% c("pid"), 3, 
+    default = 0
+    ))] %>%
   .[, `:=` (perimortT = .N), by = list(BrthYear, perimort)] %>%
   .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
   .[!perimort %in% 3] %>%
@@ -196,9 +205,12 @@ dta1 <- unique(dta[, .(BrthYear,
                               BTOUTCOM,
                               DIFINOUT))] %>%
   #.[!tolower(babyout) %in% c("pid")] %>%
-  .[, `:=` (infmort = fifelse(tolower(babyout) %in% c("lvd"), 0,
-                      fifelse(tolower(babyout) %in% c("end"), 2, 
-                      fifelse(tolower(babyout) %in% c("pid"), 3, 1))))] %>%
+  .[, `:=` (infmort = fcase(
+    tolower(babyout) %in% c("lvd"), 0,
+    tolower(babyout) %in% c("end"), 2, 
+    tolower(babyout) %in% c("pid"), 3, 
+    default = 1
+    ))] %>%
   .[, `:=` (infmortT = .N), by = list(BrthYear, infmort)]) %>%
   .[,.(BrthYear, infmort, infmortT)]
 
@@ -238,6 +250,8 @@ plot <- ggplot(data = dta1,
                aes(x = BrthYear,
                    y = rate,
                    group = infmort,
+                   color = infmort,
+                   shape = informt,
                    text =paste(infmort,
                                "<br>Year:", BrthYear,
                                "<br># live births:", scales::comma(dlv, accuracy = 1),
@@ -292,9 +306,12 @@ tbl <- unique(dta[, .(BrthYear,
                               BTOUTCOM,
                               DIFINOUT))] %>%
   #.[!tolower(babyout) %in% c("pid")] %>%
-  .[, `:=` (infmort = fifelse(tolower(babyout) %in% c("lvd"), 0,
-                      fifelse(tolower(babyout) %in% c("end"), 2, 
-                      fifelse(tolower(babyout) %in% c("pid"), 3, 1))))] %>%
+  .[, `:=` (infmort = fcase(
+    tolower(babyout) %in% c("lvd"), 0,
+    tolower(babyout) %in% c("end"), 2, 
+    tolower(babyout) %in% c("pid"), 3, 
+    default = 1
+    ))] %>%
   .[, `:=` (infmortT = .N), by = list(BrthYear, infmort)]) %>%
   .[,.(BrthYear, infmort, infmortT)]
 
