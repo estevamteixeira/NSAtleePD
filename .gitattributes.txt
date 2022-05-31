@@ -1,7 +1,0 @@
-*.txt
-*.html
-*.csv
-*.xlsx
-*.jpg
-*.jpeg
-*.png
