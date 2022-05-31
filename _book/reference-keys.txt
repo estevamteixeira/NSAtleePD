@@ -10,6 +10,10 @@ fig:plot310
 fig:plot311
 fig:plot312
 fig:plot313
+fig:plot315
+fig:plot316
+fig:plot317
+fig:plot318
 deliveries-and-births
 number-of-deliveries-live-births-and-stillbirths-to-residents-by-year-nova-scotia-2010-2019
 number-of-births-by-year-nova-scotia-2010-2019
@@ -31,3 +35,12 @@ section-39
 section-310
 section-311
 section-312
+section-313
+section-314
+section-315
+section-316
+section-317
+section-318
+fig:plot41
+section-4
+section-41
