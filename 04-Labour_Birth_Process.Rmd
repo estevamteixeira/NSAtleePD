@@ -12,14 +12,14 @@ knitr::opts_chunk$set(
   warning = FALSE,
   fig.pos = "h", 
   out.extra = "",
-  out.width = '90%',
-  fig.align = 'center',
+  out.width = "90%",
+  fig.align = "center",
   eval.after = "fig.cap")
 
-pckgs <- c('tidyverse', 'knitr', 'scales','janitor',
-           'kableExtra', 'formattable','data.table',
-           'forcats','lubridate', 'anytime','reactable',
-           'htmltools', 'plotly','purrr')
+pckgs <- c("tidyverse", "knitr", "scales","janitor",
+           "kableExtra", "formattable","data.table",
+           "forcats","lubridate", "anytime","reactable",
+           "htmltools", "plotly","purrr")
 # for (pp in `pckgs`)00/870 { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
 
 if (!require("pacman")) install.packages("pacman")
@@ -503,9 +503,6 @@ knitr::kable(tbl,
 #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
 kableExtra::row_spec(0, bold = TRUE) %>%
 #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::group_rows("0", start_row = 1, end_row = 2) %>%
-kableExtra::group_rows("1", start_row = 3, end_row = 4) %>%
-kableExtra::group_rows("\u2265 2", start_row = 5, end_row = 6) %>%
 kableExtra::kable_styling(font_size = 12, full_width = FALSE,
                           bootstrap_options = c("hover","condensed", "responsive")) %>%
 kableExtra::add_footnote(label = c("Note: Use of oxytocin to improve contractions after labour has started spontaneously."))
@@ -519,7 +516,8 @@ dta1 <- dta[, .(BrthYear,
                 R010_00200, R010_00300, R010_00400, R010_00500, R010_00600, R010_00800, R010_00900, R010_01000,
                 R011_00200, R011_00300, R011_00400, R011_00500, R011_00600, R011_00800, R011_00900, R011_01000,
                 R012_00200, R012_00300, R012_00400, R012_00500, R012_00600, R012_00800, R012_00900, R012_01000,
-                MEPIS, MEPIC, MIFUS, MPCEA, MSEDN, MSPIN, MPUDL, MGENA)] %>%
+                MEPIS, MEPIC, MIFUS, MPCEA, MSEDN, MSPIN, MPUDL, MGENA,
+                DMMETHOD)] %>%
   .[, epi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00200","R010_00300", "R010_00400","R010_00500","R010_01000","R011_00200","R011_00300","R011_00400","R011_00500","R011_01000","R012_00200","R012_00300","R012_00400","R012_00500","R012_01000","MEPIS","MEPIC","MIFUS","MPCEA","MSEDN")] %>%
   .[, spi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00900","R010_01000","R011_00900","R011_01000","R012_00900","R012_01000","MSPIN","MSEDN")] %>%
   .[, dou := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_01000","R011_01000","R012_01000","MSEDN")] %>%
@@ -528,40 +526,59 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (anes = fcase(
     epi >= 1 | spi >= 1 | dou >= 1 | pud >= 1 | gen >= 1, 1,
     default = 0
+    ),
+    deliv = fcase(
+      # spontaneous vaginal
+      tolower(DMMETHOD) %in% c("biv", "spt"), 1,
+      # assisted vaginal
+      tolower(DMMETHOD) %in% c("vac", "low", "mid"), 2,
+      # c-section
+      tolower(DMMETHOD) %in% c("cst"), 3,
+      default = 4
     ))] %>%
   #unique() %>%
-  .[, `:=` (count = .N), by = list(BrthYear, anes)] %>%
-  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  # remove missing
+  .[!deliv %in% 4] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, anes, deliv)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, deliv)] %>%
   .[, `:=` (rate = count/total)] %>%
   unique()
 
 # age category using UNICODE codes
-dta1 <- dta1[, `:=` (aug = factor(aug,
+dta1 <- dta1[, `:=` (anes = factor(anes,
                                    levels = c(0,1),
                                    labels = c("No",
-                                              "Augmented")))]
+                                              "Yes")),
+                     deliv = factor(deliv,
+                                    levels = c(1,2,3),
+                                    labels = c("Spontaneous vaginal",
+                                               "Assisted vaginal",
+                                               "Caesarean section")))]
 
 ## getting color for plotting
 
-pal <- c("No" = "#1b9e77",
-         "Augmented" = "#d95f02")
+pal <- c("Spontaneous vaginal" = "#1b9e77",
+         "Assisted vaginal" = "#d95f02"
+         #"Caesarean section" = "#7570b3" 
+         )
 
-plot <- ggplot(data = dta1[!aug %in% "No"],
+plot <- ggplot(data = dta1[!deliv %in% "Caesarean section" & 
+                             !anes %in% "No"],
                aes(x = BrthYear,
                    y = rate,
-                   group = aug,
-                   colour = aug,
-                   fill = aug,
-                   #shape = aug,
-                   text =paste(aug,
+                   group = deliv,
+                   colour = deliv,
+                   fill = deliv,
+                   shape = deliv,
+                   text =paste(deliv,
                                "<br>Year:", BrthYear,
                                "<br># births:", scales::comma(total, accuracy = 1),
                                "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
                                )
                    )
                ) +
-  geom_point(aes(color = aug, fill = aug)) +
-  geom_line(aes(color = aug, fill = aug)) +
+  geom_point(aes(color = deliv, fill = deliv, shape = deliv)) +
+  geom_line(aes(color = deliv, fill = deliv)) +
 # Specifying colors by age group
   scale_color_manual(name = "",
                      values = pal,
@@ -569,8 +586,8 @@ plot <- ggplot(data = dta1[!aug %in% "No"],
   scale_fill_manual(name = "",
                     values = pal,
                     limits = names(pal)) +
-  # scale_shape_manual(name = "",
-  #                    values = c(15,16,17,18,19)) +
+  scale_shape_manual(name = "",
+                     values = c(15,16)) +
   # scale_x_date(date_breaks = "2 years",
   #              date_labels = "%Y") +
   scale_x_continuous(#trans = 'log2',
@@ -595,37 +612,217 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
                                xanchor = "center"),
                  font = list(face = "bold", size = 10),
-                 showlegend = FALSE)
+                 showlegend = TRUE)
 ```
 
 ```{r tbl44}
 tbl <- dta[, .(BrthYear,
-                AUGMENT)] %>%
-  .[!is.na(AUGMENT)] %>%
-  .[, `:=` (aug = fcase(
-    tolower(AUGMENT) %in% "y", 1,
+                R010_00200, R010_00300, R010_00400, R010_00500, R010_00600, R010_00800, R010_00900, R010_01000,
+                R011_00200, R011_00300, R011_00400, R011_00500, R011_00600, R011_00800, R011_00900, R011_01000,
+                R012_00200, R012_00300, R012_00400, R012_00500, R012_00600, R012_00800, R012_00900, R012_01000,
+                MEPIS, MEPIC, MIFUS, MPCEA, MSEDN, MSPIN, MPUDL, MGENA,
+                DMMETHOD)] %>%
+  .[, epi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00200","R010_00300", "R010_00400","R010_00500","R010_01000","R011_00200","R011_00300","R011_00400","R011_00500","R011_01000","R012_00200","R012_00300","R012_00400","R012_00500","R012_01000","MEPIS","MEPIC","MIFUS","MPCEA","MSEDN")] %>%
+  .[, spi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00900","R010_01000","R011_00900","R011_01000","R012_00900","R012_01000","MSPIN","MSEDN")] %>%
+  .[, dou := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_01000","R011_01000","R012_01000","MSEDN")] %>%
+  .[, pud := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00800","R011_00800","R012_00800","MPUDL")] %>%
+  .[, gen := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00600","R011_00600","R012_00600","MGENA")] %>%
+  .[, `:=` (anes = fcase(
+    epi >= 1 | spi >= 1 | dou >= 1 | pud >= 1 | gen >= 1, 1,
     default = 0
+    ),
+    deliv = fcase(
+      # spontaneous vaginal
+      tolower(DMMETHOD) %in% c("biv", "spt"), 1,
+      # assisted vaginal
+      tolower(DMMETHOD) %in% c("vac", "low", "mid"), 2,
+      # c-section
+      tolower(DMMETHOD) %in% c("cst"), 3,
+      default = 4
     ))] %>%
   #unique() %>%
-  .[, `:=` (count = .N), by = list(BrthYear, aug)] %>%
+  # remove missing
+  .[!deliv %in% 4] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, anes, deliv)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, deliv)] %>%
+  .[, `:=` (rate = 100*count/total)]
+
+tbl1 <- tbl %>%
+  .[!anes %in% 0 &
+    !deliv %in% c(2,3)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (deliv = fifelse(tolower(variable) %in% "total",
+                               0, deliv))] %>%
+  .[, .(BrthYear, deliv, value)] %>%
+  unique() %>%
+  dcast(deliv ~ BrthYear, value.var = "value")
+
+coln <- names(tbl1)
+coln[1] <- ""
+
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl1) <- coln
+
+tbl1[,1] <- c("# deliveries", "% anesthesia")
+
+tbl2 <- tbl %>%
+  .[!anes %in% 0 &
+    !deliv %in% c(1,3)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (deliv = fifelse(tolower(variable) %in% "total",
+                               0, deliv))] %>%
+  .[, .(BrthYear, deliv, value)] %>%
+  unique() %>%
+  dcast(deliv ~ BrthYear, value.var = "value")
+
+coln <- names(tbl2)
+coln[1] <- ""
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl2) <- coln
+
+tbl2[,1] <- c("# deliveries", "% anesthesia")
+
+tbl <- setDT(rbind(tbl1, tbl2))
+names(tbl)[1] <- "Type of delivery" 
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+#kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::group_rows("Spontaneous vaginal", start_row = 1, end_row = 2) %>%
+kableExtra::group_rows("Assisted vaginal", start_row = 3, end_row = 4) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                          bootstrap_options = c("hover","condensed", "responsive")) %>%
+kableExtra::add_footnote(label = c("Regional anesthesia including epidural, spinal, and/or pudendal anesthesia during labour and/or delivery."))
+```
+
+## Type of delivery by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-45}
+
+```{r plot45, fig.cap= paste('Type of delivery by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+                DMMETHOD)] %>%
+  .[, `:=` (deliv = fcase(
+      # spontaneous vaginal
+      tolower(DMMETHOD) %in% c("biv", "spt"), 1,
+      # assisted vaginal
+      tolower(DMMETHOD) %in% c("vac", "low", "mid"), 2,
+      # c-section
+      tolower(DMMETHOD) %in% c("cst"), 3,
+      default = 4
+    ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!deliv %in% 4] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, deliv)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (deliv = factor(deliv,
+                                    levels = c(1,2,3),
+                                    labels = c("Spontaneous vaginal",
+                                               "Assisted vaginal",
+                                               "Caesarean section")))]
+
+## getting color for plotting
+
+pal <- c("Spontaneous vaginal" = "#1b9e77",
+         "Assisted vaginal" = "#d95f02",
+         "Caesarean section" = "#7570b3" )
+
+plot <- ggplot(data = dta1,
+               aes(x = BrthYear,
+                   y = rate,
+                   group = deliv,
+                   colour = deliv,
+                   fill = deliv,
+                   shape = deliv,
+                   text =paste(deliv,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                               )
+                   )
+               ) +
+  geom_point(aes(color = deliv, fill = deliv, shape = deliv)) +
+  geom_line(aes(color = deliv, fill = deliv)) +
+# Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15,16,17)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = '% of deliveries', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+```
+
+```{r tbl45}
+tbl <- dta[, .(BrthYear,
+                DMMETHOD)] %>%
+  .[, `:=` (deliv = fcase(
+      # spontaneous vaginal
+      tolower(DMMETHOD) %in% c("biv", "spt"), 1,
+      # assisted vaginal
+      tolower(DMMETHOD) %in% c("vac", "low", "mid"), 2,
+      # c-section
+      tolower(DMMETHOD) %in% c("cst"), 3,
+      default = 4
+    ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!deliv %in% 4] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, deliv)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = 100*count/total)] %>%
   melt(measure.vars = c("rate", "total", "count")) %>%
-  .[!tolower(variable) %in% "count" &
-      !aug %in% 0] %>%
-  .[, `:=` (aug = fifelse(tolower(variable) %in% "total",
-                               0, aug))] %>%
-  .[, .(BrthYear, aug, value)] %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (deliv = fifelse(tolower(variable) %in% "total",
+                               0, deliv))] %>%
+  .[, .(BrthYear, deliv, value)] %>%
   unique() %>%
-  dcast(aug ~ BrthYear, value.var = "value")
+  dcast(deliv ~ BrthYear, value.var = "value")
 
 coln <- names(tbl)
 coln[1] <- ""
 
-tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 names(tbl) <- coln
 
-tbl[,1] <- c("# spontaneous labour", "Augmented")
+tbl[,1] <- c("# deliveries", "Spontaneous vaginal", "Assisted vaginal", "Caesarean section")
 
 
 knitr::kable(tbl,
@@ -635,10 +832,784 @@ knitr::kable(tbl,
 #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
 kableExtra::row_spec(0, bold = TRUE) %>%
 #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::group_rows("0", start_row = 1, end_row = 2) %>%
-kableExtra::group_rows("1", start_row = 3, end_row = 4) %>%
-kableExtra::group_rows("\u2265 2", start_row = 5, end_row = 6) %>%
+kableExtra::group_rows("Spontaneous vaginal", start_row = 1, end_row = 2) %>%
+kableExtra::group_rows("Assisted vaginal", start_row = 3, end_row = 4) %>%
 kableExtra::kable_styling(font_size = 12, full_width = FALSE,
                           bootstrap_options = c("hover","condensed", "responsive")) %>%
-kableExtra::add_footnote(label = c("Note: Use of oxytocin to improve contractions after labour has started spontaneously."))
+kableExtra::add_footnote(label = c("With known type of delivery."))
+```
+
+## Stage of labour before Caesarean delivery by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-46}
+
+```{r plot46, fig.cap= paste('Stage of labour before Caesarean delivery by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+                DMCSSTAG)] %>%
+  .[, `:=` (cs = fcase(
+      # spontaneous vaginal
+      tolower(DMCSSTAG) %in% c("cnol"), 1,
+      # assisted vaginal
+      tolower(DMCSSTAG) %in% c("c1st"), 2,
+      # c-section
+      tolower(DMCSSTAG) %in% c("c2nd"), 3,
+      default = 4
+    ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!cs %in% 4] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, cs)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cs = factor(cs,
+                                    levels = c(1,2,3),
+                                    labels = c("No labour",
+                                               "1\u02e2\u1d57 stage",
+                                               "2\u207f\u1d48 stage")))]
+
+## getting color for plotting
+
+pal <- c("No labour" = "#1b9e77",
+         "1\u02e2\u1d57 stage" = "#d95f02",
+         "2\u207f\u1d48 stage" = "#7570b3" )
+
+plot <- ggplot(data = dta1,
+               aes(x = BrthYear,
+                   y = rate,
+                   group = cs,
+                   colour = cs,
+                   fill = cs,
+                   shape = cs,
+                   text =paste(cs,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of cseries:" , scales::percent(rate, accuracy = .1)
+                               )
+                   )
+               ) +
+  geom_point(aes(color = cs, fill = cs, shape = cs)) +
+  geom_line(aes(color = cs, fill = cs)) +
+# Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15,16,17)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = '% of deliveries', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+```
+
+```{r tbl46}
+tbl <- dta[, .(BrthYear,
+                DMCSSTAG)] %>%
+  .[, `:=` (cs = fcase(
+      # spontaneous vaginal
+      tolower(DMCSSTAG) %in% c("cnol"), 1,
+      # assisted vaginal
+      tolower(DMCSSTAG) %in% c("c1st"), 2,
+      # c-section
+      tolower(DMCSSTAG) %in% c("c2nd"), 3,
+      default = 4
+    ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!cs %in% 4] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, cs)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (cs = fifelse(tolower(variable) %in% "total",
+                               0, cs))] %>%
+  .[, .(BrthYear, cs, value)] %>%
+  unique() %>%
+  dcast(cs ~ BrthYear, value.var = "value")
+
+coln <- names(tbl)
+coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
+names(tbl) <- coln
+
+tbl[,1] <- c("# caesarean sections", "No labour", "1\u02e2\u1d57 stage", "2\u207f\u1d48 stage")
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+#kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                          bootstrap_options = c("hover","condensed", "responsive")) %>%
+kableExtra::add_footnote(label = c("The 1$^{st}$ stage is the period from the onset of labour until the cervix is fully dilated (10 cm). The 2$^{nd}$ stage is the period from 10 cm dilation of the cervix until the baby is delivered."),
+escape = FALSE)
+```
+
+## Primary indication for Caesarean delivery by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-47}
+
+```{r plot47, fig.cap= paste('Primary indication for Caesarean delivery by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+                INDICCS1)] %>%
+  .[, `:=` (cs = fcase(
+      toupper(INDICCS1) %in% c("PCS"), 1,
+      toupper(INDICCS1) %in% c("BCH","MLP","TLI"), 2,
+      toupper(INDICCS1) %in% c("DYS"), 3,
+      toupper(INDICCS1) %in% c("FDS"), 4,
+      toupper(INDICCS1) %in% c("CXD","DBT","HTD","HIV","HSV","ISO","PTD","UTS"), 5,
+      toupper(INDICCS1) %in% c("FGT","MAC","SFA","MTP","OFC"), 6,
+      toupper(INDICCS1) %in% c("APL","PLP","PLC"), 7,
+      toupper(INDICCS1) %in% c("AMA","MAT","PRM","FID","OOC","SUR","OTR","PMC",""), 8,
+      default = 9
+    ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!cs %in% 9] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, cs)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cs = factor(cs,
+                                    levels = c(1,2,3,4,5,6,7,8),
+                                    labels = c("Previous caesarean",
+                                               "Breech or other malpresentation",
+                                               "Labour dystocia",
+                                               "Fetal distress",
+                                               "Maternal conditions",
+                                               "Fetal conditions",
+                                               "Placenta or cord related",
+                                               "Other")))]
+
+## getting color for plotting
+
+pal <- c("Previous caesarean" = "#1b9e77",
+        "Breech or other malpresentation" = "#d95f02",
+        "Labour dystocia" = "#7570b3",
+        "Fetal distress" = "#e7298a",
+        "Maternal conditions" = "#66a61e",
+        "Fetal conditions" = "#e6ab02",
+        "Placenta or cord related" = "#a6761d",
+        "Other" = "#666666")
+
+plot <- ggplot(data = dta1,
+               aes(x = BrthYear,
+                   y = rate,
+                   group = cs,
+                   colour = cs,
+                   fill = cs,
+                   shape = cs,
+                   text = paste(cs,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of cseries:" , scales::percent(rate, accuracy = .1)
+                               )
+                   )
+               ) +
+  geom_point(aes(color = cs, fill = cs, shape = cs)) +
+  geom_line(aes(color = cs, fill = cs)) +
+# Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15,16,17,18,19,20,21,22)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = '% of deliveries', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+```
+
+```{r tbl47}
+tbl <- dta[, .(BrthYear,
+                INDICCS1)] %>%
+  .[, `:=` (cs = fcase(
+      toupper(INDICCS1) %in% c("PCS"), 1,
+      toupper(INDICCS1) %in% c("BCH","MLP","TLI"), 2,
+      toupper(INDICCS1) %in% c("DYS"), 3,
+      toupper(INDICCS1) %in% c("FDS"), 4,
+      toupper(INDICCS1) %in% c("CXD","DBT","HTD","HIV","HSV","ISO","PTD","UTS"), 5,
+      toupper(INDICCS1) %in% c("FGT","MAC","SFA","MTP","OFC"), 6,
+      toupper(INDICCS1) %in% c("APL","PLP","PLC"), 7,
+      toupper(INDICCS1) %in% c("AMA","MAT","PRM","FID","OOC","SUR","OTR","PMC",""), 8,
+      default = 9
+    ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!cs %in% 9] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, cs)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (cs = fifelse(tolower(variable) %in% "total",
+                               0, cs))] %>%
+  .[, .(BrthYear, cs, value)] %>%
+  unique() %>%
+  dcast(cs ~ BrthYear, value.var = "value")
+
+coln <- names(tbl)
+coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%","%1.1f%%","%1.1f%%","%1.1f%%","%1.1f%%","%1.1f%%")))
+names(tbl) <- coln
+
+tbl[,1] <- c("# caesarean sections", "Previous caesarean", "Breech or other malpresentation", "Labour dystocia", "Fetal distress", "Maternal conditions", "Fetal conditions", "Placenta or cord related", "Other")
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+#kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                          bootstrap_options = c("hover","condensed", "responsive"))
+```
+
+## Caesarean delivery by Robson group and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-48}
+
+```{r plot48, fig.cap= paste('Caesarean delivery by Robson group and year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+                DLNUMFET,
+                GA_BEST,
+                POSATDEL,
+                DLPARA,
+                LABOUR,
+                DLPRVCS,
+                DMMETHOD)] %>%
+  .[, `:=` (robsongrp = fcase(
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "s", 1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "i", 2.1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "n", 2.2,
+  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "s", 3,
+  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "i", 4.1,
+  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "n", 4.2,
+  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "s", 5.1,
+  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "i", 5.2,
+  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "n", 5.3,
+  DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("bch","frb","ftb") & DLPARA %in% 0, 6,
+  DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("bch","frb","ftb") & DLPARA > 0, 7,
+  DLNUMFET > 1, 8,
+  DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("shl","tli"), 9,
+  DLNUMFET %in% 1 & GA_BEST < 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC',''), 10,
+  default = 0
+  ))] %>%
+  .[, `:=` (robson = fcase(
+    robsongrp %in% 1, 1,
+    robsongrp >= 2 & robsongrp < 3, 2,
+    robsongrp %in% 3, 3,
+    robsongrp >= 4 & robsongrp < 5, 4,
+    robsongrp >= 5 & robsongrp < 6, 5,
+    robsongrp %in% 6 | robsongrp %in% 7, 6,
+    robsongrp %in% 8, 8,
+    robsongrp %in% 10, 10,
+    default = 0
+  ),
+  cs = fcase(
+    tolower(DMMETHOD) %in% "cst", 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!robson %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, robson, cs)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, robson)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (robson = factor(robson,
+                                    levels = c(1,2,3,4,5,6,8,10),
+                                    labels = c("1",
+                                               "2",
+                                               "3",
+                                               "4",
+                                               "5",
+                                               "6-7",
+                                               "8",
+                                               "10")))]
+
+## getting color for plotting
+
+pal <- c("1" = "#1b9e77",
+        "2" = "#d95f02",
+        "3" = "#7570b3",
+        "4" = "#e7298a",
+        "5" = "#66a61e",
+        "6-7" = "#e6ab02",
+        "8" = "#a6761d",
+        "10" = "#666666")
+
+plot <- ggplot(data = dta1[!cs %in% 0],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = robson,
+                   colour = robson,
+                   fill = robson,
+                   shape = robson,
+                   text = paste(robson,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% oferies:" , scales::percent(rate, accuracy = .1)
+                               )
+                   )
+               ) +
+  geom_point(aes(color = robson, fill = robson, shape = robson)) +
+  geom_line(aes(color = robson, fill = robson)) +
+# Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15,16,17,18,19,20,21,22)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = '% of deliveries', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+```
+
+```{r tbl48}
+tbl <- dta[, .(BrthYear,
+                DLNUMFET,
+                GA_BEST,
+                POSATDEL,
+                DLPARA,
+                LABOUR,
+                DLPRVCS,
+                DMMETHOD)] %>%
+  .[, `:=` (robsongrp = fcase(
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "s", 1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "i", 2.1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "n", 2.2,
+  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "s", 3,
+  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "i", 4.1,
+  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "n", 4.2,
+  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "s", 5.1,
+  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "i", 5.2,
+  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "n", 5.3,
+  DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("bch","frb","ftb") & DLPARA %in% 0, 6,
+  DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("bch","frb","ftb") & DLPARA > 0, 7,
+  DLNUMFET > 1, 8,
+  DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("shl","tli"), 9,
+  DLNUMFET %in% 1 & GA_BEST < 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC',''), 10,
+  default = 0
+  ))] %>%
+  .[, `:=` (robson = fcase(
+    robsongrp %in% 1, 1,
+    robsongrp >= 2 & robsongrp < 3, 2,
+    robsongrp %in% 3, 3,
+    robsongrp >= 4 & robsongrp < 5, 4,
+    robsongrp >= 5 & robsongrp < 6, 5,
+    robsongrp %in% 6 | robsongrp %in% 7, 6,
+    robsongrp %in% 8, 8,
+    robsongrp %in% 10, 10,
+    default = 0
+  ),
+  cs = fcase(
+    tolower(DMMETHOD) %in% "cst", 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!robson %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, robson, cs)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, robson)] %>%
+  .[, `:=` (rate = 100*count/total)]
+
+tbl1 <- tbl %>%
+  .[robson %in% 1 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+coln <- names(tbl1)
+coln[1] <- ""
+
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl1) <- coln
+
+tbl1[,1] <- c("# deliveries", "% caesarean")
+
+tbl2 <- tbl %>%
+  .[robson %in% 2 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+coln <- names(tbl2)
+coln[1] <- ""
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl2) <- coln
+
+tbl2[,1] <- c("# deliveries", "% caesarean")
+
+tbl3 <- tbl %>%
+  .[robson %in% 3 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+coln <- names(tbl3)
+coln[1] <- ""
+
+tbl3 <- as.data.frame(sapply(tbl3, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl3) <- coln
+
+tbl3[,1] <- c("# deliveries", "% caesarean")
+
+tbl4 <- tbl %>%
+  .[robson %in% 4 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+coln <- names(tbl4)
+coln[1] <- ""
+
+tbl4 <- as.data.frame(sapply(tbl4, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl4) <- coln
+
+tbl4[,1] <- c("# deliveries", "% caesarean")
+
+tbl5 <- tbl %>%
+  .[robson %in% 5 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+coln <- names(tbl5)
+coln[1] <- ""
+
+tbl5 <- as.data.frame(sapply(tbl5, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl5) <- coln
+
+tbl5[,1] <- c("# deliveries", "% caesarean")
+
+tbl6 <- tbl %>%
+  .[robson %in% 6 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+coln <- names(tbl6)
+coln[1] <- ""
+
+tbl6 <- as.data.frame(sapply(tbl6, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl6) <- coln
+
+tbl6[,1] <- c("# deliveries", "% caesarean")
+
+tbl7 <- tbl %>%
+  .[robson %in% 8 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+coln <- names(tbl7)
+coln[1] <- ""
+
+tbl7 <- as.data.frame(sapply(tbl7, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl7) <- coln
+
+tbl7[,1] <- c("# deliveries", "% caesarean")
+
+tbl8 <- tbl %>%
+  .[robson %in% 10 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+coln <- names(tbl8)
+coln[1] <- ""
+
+tbl8 <- as.data.frame(sapply(tbl8, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl8) <- coln
+
+tbl8[,1] <- c("# deliveries", "% caesarean")
+
+tbl <- setDT(rbind(tbl1, tbl2, tbl3, tbl4,
+                   tbl5, tbl6, tbl7, tbl8))
+
+names(tbl)[1] <- "Robson group"
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+#kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::group_rows("(1) Nulliparous, singleton, cephalic, term, spontaneous labour ", start_row = 1, end_row = 2) %>%
+  kableExtra::group_rows("(2) Nulliparous, singleton, cephalic, term, induced or no labour", start_row = 3, end_row = 4) %>%
+  kableExtra::group_rows("(3) Multiparous, singleton, cephalic, term, no previous CS, spontaneous labour", start_row = 5, end_row = 6) %>%
+  kableExtra::group_rows("(4) Multiparous, singleton, cephalic, term, no previous CS, induced or no labour", start_row = 7, end_row = 8) %>%
+  kableExtra::group_rows("(5) Multiparous, singleton, cephalic, term, previous CS", start_row = 9, end_row = 10) %>%
+  kableExtra::group_rows("(6-7) Nulliparous or multiparous, singleton, breech", start_row = 11, end_row = 12) %>%
+  kableExtra::group_rows("(8) Multiple pregnancy", start_row = 13, end_row = 14) %>%
+  kableExtra::group_rows("(10) Singleton, cephalic, preterm", start_row = 15, end_row = 16) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                          bootstrap_options = c("hover","condensed", "responsive")) %>%
+kableExtra::add_footnote(label = c("The Robson criteria for the classification of deliveries into ten mutually exclusive groups by maternal characteristics allows comparison of Caesarean section rates at regional and national levels. Please note that for the purposes of this report: (1) group 6 (nulliparous breeches) and group 7 (multiparous breeches) are combined; and (2) group 9 (abnormal lies excluding breeches) is omitted due to small numbers. [Ref: Robson MS. Classification of caesarean sections. Feta and Maternal Medicine Review 2001;12(1):23-39]."))
+```
+
+## Any labour among candidates for vaginal birth after Caesarean by year, `r paste0(params$year1,"-",params$year2)` {#section-49}
+
+```{r plot49, fig.cap= paste('Any labour among candidates for vaginal birth after Caesarean by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+                LABOUR,
+                DMMETHOD,
+                POSATDEL,
+                DLNUMFET,
+                DLPRVCS,
+                INDICCS1)] %>%
+  .[, `:=` (lab = fcase(
+    !tolower(LABOUR) %in% "n", 1, 
+    default = 0
+  ),
+  vbac = fcase(
+    tolower(POSATDEL) %in% c("vtx", "pop", "") & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!vbac %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lab)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (lab = factor(lab,
+                                    levels = c(0,1),
+                                    labels = c("No labour and no induction attempt",
+                                               "Labour or induction attempt")))]
+
+## getting color for plotting
+
+pal <- c("No labour and no induction attempt" = "#1b9e77",
+        "Labour or induction attempt" = "#d95f02")
+
+plot <- ggplot(data = dta1,
+               aes(x = BrthYear,
+                   y = rate,
+                   group = lab,
+                   colour = lab,
+                   fill = lab,
+                   shape = lab,
+                   text = paste(lab,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% oferies:" , scales::percent(rate, accuracy = .1)
+                               )
+                   )
+               ) +
+  geom_point(aes(color = lab, fill = lab, shape = lab)) +
+  geom_line(aes(color = lab, fill = lab)) +
+# Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15,16)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = '% of deliveries', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+```
+
+```{r tbl49}
+tbl <- dta[, .(BrthYear,
+                LABOUR,
+                DMMETHOD,
+                POSATDEL,
+                DLNUMFET,
+                DLPRVCS,
+                INDICCS1)] %>%
+  .[, `:=` (lab = fcase(
+    !tolower(LABOUR) %in% "n", 1, 
+    default = 0
+  ),
+  vbac = fcase(
+    tolower(POSATDEL) %in% c("vtx", "pop", "") & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!vbac %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lab)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (lab = fifelse(tolower(variable) %in% "total",
+                               -1, lab))] %>%
+  .[, .(BrthYear, lab, value)] %>%
+  unique() %>%
+  dcast(lab ~ BrthYear, value.var = "value")
+
+coln <- names(tbl)
+coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+names(tbl) <- coln
+
+tbl[,1] <- c("# VBAC candidates", "Labour or induction attempt", "No labour and no induction attempt")
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+#kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                          bootstrap_options = c("hover","condensed", "responsive")) %>%
+kableExtra::add_footnote(label = c("Note: For the purposes of this report, a candidate for vaginal birth after Caesarean (VBAC) is woman who has had no more than one previous Caesarean section delivery; whose current pregnancy is a singleton in vertex presentation; and who has no contraindications for labour. On an individual basis when more information is available, such as type of previous Caesarean delivery, other factors are taken into account and women with two previous Caesarean deliveries may be considered for VBAC. [Ref: Society of Obstetricians and Gynaecologists of Canada. Guidelines for vaginal birth after previous caesarean birth. SOGC clinical practice guidelines. Number 155, February 2005. International Journal of Gynaecology and Obstetrics 2005;89(3):319-31].
+"))
 ```

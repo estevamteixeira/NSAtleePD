@@ -5,7 +5,7 @@ params:
   year2: 2019
 subtitle: 'Report of Indicators: 2010-2019'
 author: 'Estevam Teixeira'
-date: '2022-05-25'
+date: '2022-06-01'
 site: bookdown::bookdown_site
 output: bookdown::bs4_book
 documentclass: krantz
@@ -38,7 +38,7 @@ Hosting the source code on [GitHub](https://github.com/estevamteixeira/NSAtleePD
 
 The online version of the report is hosted at [rcp.nshealth.ca/publications](http://rcp.nshealth.ca/publications/nsapd-report-indicators-2010-2019).
 
-This version of the book was built on 2022-05-25.
+This version of the book was built on 2022-06-01.
 
 ## Supporting the project {-}
 

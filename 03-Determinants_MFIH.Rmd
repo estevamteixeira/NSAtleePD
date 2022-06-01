@@ -567,7 +567,7 @@ plot <- ggplot(data = dta1[!smoker %in% "0"],
                    y = rate,
                    group = smoker,
                    color = smoker,
-                   fill = smoker
+                   fill = smoker,
                    text =paste(smoker,
                                "<br>Year:", BrthYear,
                                "<br># births:", scales::comma(total, accuracy = 1),
