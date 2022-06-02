@@ -69,13 +69,13 @@ We would like to honour two neonatologists whom we have lost since our last edit
 
 **Dr. Dora Stinson, MD, FRCPC, FAAP (1939-2020)** was actively involved in every aspect of neonatal medicine for many years, in research, administration and directly in clinical treatment of children. Dr. Stinson was well known locally and nationally as a skilled physician, a dedicated teacher and mentor, and a valued colleague. She acted as the Neonatal Clinical Advisor for the Reproductive Care Program for several years, and provided thoughtful input on several of the indicators shown herein.
 
-```{r dora, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center', out.width='20%', fig.cap='Dr. Dora Stinson.'}
+```{r dora, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center', out.width='20%'}
 knitr::include_graphics("images/Dora.png")
 ```
 
 **Dr. Alec Allen, MDCM, FAAP, FRCPC (1933-2018)** had extraordinary vision when he established the Nova Scotia Atlee Perinatal Database in the 1980s, well before other similar databases were established in other provinces. His hard work made this Report, over one hundred research projects, and many quality improvement initiatives possible. Among his many accomplishments, Dr. Allen established the Perinatal Epidemiology Research Unit and served as its first director until 2010.
 
-```{r alec, echo=FALSE, fig.align='center', out.width='20%', fig.cap='Dr. Alec Allen.'}
+```{r alec, echo=FALSE, fig.align='center', out.width='20%'}
 knitr::include_graphics("images/Alec.png")
 ```
 
