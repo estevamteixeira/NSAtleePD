@@ -1,7 +1,9 @@
-*.Rproj.user
-*.Rhistory
-*.RData
+.Rproj.user/
+.Rhistory
+.RData
+.Rhistory
 *.Rproj
-/data
+data/
 *.rds
 *.md
+*.knit.md

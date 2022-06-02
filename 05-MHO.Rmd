@@ -1,0 +1,228 @@
+---
+params:
+  year1: 2010
+  year2: 2019
+fig.caption: yes
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  message = FALSE, 
+  warning = FALSE,
+  fig.pos = "h", 
+  out.extra = "",
+  out.width = "90%",
+  fig.align = "center",
+  eval.after = "fig.cap")
+
+pckgs <- c("tidyverse", "knitr", "scales","janitor",
+           "kableExtra", "formattable","data.table",
+           "forcats","lubridate", "anytime","reactable",
+           "htmltools", "plotly","purrr")
+# for (pp in `pckgs`)00/870 { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(pckgs, character.only = TRUE)
+## data input
+
+# add data
+dta <- readr::read_csv("data/NSAtleePD.csv") %>%
+  setDT() %>%
+  .[data.table::between(BrthYear, params$year1, params$year2), ]
+```
+
+<!-- # (PART) Deliveries and Births {-} -->
+  
+# Maternal Helath Outcomes {#section-5}
+  
+##  Labour induction by parity and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-51}
+  
+```{r plot51, fig.cap= paste('Labour induction by parity and year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+                LABOUR,
+                FAILED_INDUCTION,
+                DLPARA)] %>%
+  .[!is.na(DLPARA) |
+      !is.na(LABOUR) |
+      !is.na(FAILED_INDUCTION)] %>%
+  .[, `:=` (ind = fcase(
+    tolower(LABOUR) %in% "i" | tolower(FAILED_INDUCTION) %in% "y", 1,
+    default = 0
+  ),
+  parity = fcase(
+    DLPARA %in% 0 , 1,
+    DLPARA %in% 1, 2,
+    default = 3
+  ))] %>%
+  .[order(BrthYear, parity, ind)] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, parity, ind)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, parity)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (ind = factor(ind,
+                                  levels = c(0,1),
+                                  labels = c("No",
+                                             "Induction attempted")),
+                     parity = factor(parity,
+                                     levels = c(1,2,3),
+                                     labels = c("0",
+                                                "1",
+                                                "\u2265 2")))]
+
+## getting color for plotting
+
+pal <- c("0" = "#1b9e77",
+         "1" = "#d95f02",
+         "\u2265 2" = "#7570b3")
+
+plot <- ggplot(data = dta1[!ind %in% c("No")],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = parity,
+                   colour = parity,
+                   fill = parity,
+                   shape = parity,
+                   text =paste(parity,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = parity, fill = parity, shape = parity)) +
+  geom_line(aes(color = parity, fill = parity)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15, 16, 17)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = '% of deliveries', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+```
+
+```{r tbl51}
+tbl <- dta[, .(BrthYear,
+               LABOUR,
+               FAILED_INDUCTION,
+               DLPARA)] %>%
+  .[!is.na(DLPARA) |
+      !is.na(LABOUR) |
+      !is.na(FAILED_INDUCTION)] %>%
+  .[, `:=` (ind = fcase(
+    tolower(LABOUR) %in% "i" | tolower(FAILED_INDUCTION) %in% "y", 1,
+    default = 0
+  ),
+  parity = fcase(
+    DLPARA %in% 0 , 1,
+    DLPARA %in% 1, 2,
+    default = 3
+  ))] %>%
+  .[order(BrthYear, parity, ind)] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, parity, ind)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, parity)] %>%
+  .[, `:=` (rate = 100*count/total)] 
+
+tbl1 <- tbl %>%
+  .[parity %in% 1 & ind %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (ind = fifelse(tolower(variable) %in% "total",
+                          0, ind))] %>%
+  .[, .(BrthYear, ind, value)] %>%
+  unique() %>%
+  dcast(ind ~ BrthYear, value.var = "value")
+
+coln <- names(tbl1)
+coln[1] <- ""
+
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl1) <- coln
+
+tbl1[,1] <- c("# deliveries", "% induction attempted")
+
+tbl2 <- tbl %>%
+  .[parity %in% 2 & ind %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (ind = fifelse(tolower(variable) %in% "total",
+                          0, ind))] %>%
+  .[, .(BrthYear, ind, value)] %>%
+  unique() %>%
+  dcast(ind ~ BrthYear, value.var = "value")
+
+coln <- names(tbl2)
+coln[1] <- ""
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl2) <- coln
+
+tbl2[,1] <- c("# deliveries", "% induction attempted")
+
+tbl3 <- tbl %>%
+  .[parity %in% 3 & ind %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (ind = fifelse(tolower(variable) %in% "total",
+                          0, ind))] %>%
+  .[, .(BrthYear, ind, value)] %>%
+  unique() %>%
+  dcast(ind ~ BrthYear, value.var = "value")
+
+coln <- names(tbl3)
+coln[1] <- ""
+
+tbl3 <- as.data.frame(sapply(tbl3, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl3) <- coln
+
+tbl3[,1] <- c("# deliveries", "% induction attempted")
+
+tbl <- setDT(rbind(tbl1, tbl2, tbl3))
+names(tbl)[1] <- "Parity" 
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+  kableExtra::row_spec(0, bold = TRUE) %>%
+  #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+  kableExtra::group_rows("0", start_row = 1, end_row = 2) %>%
+  kableExtra::group_rows("1", start_row = 3, end_row = 4) %>%
+  kableExtra::group_rows("\u2265 2", start_row = 5, end_row = 6) %>%
+  kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                            bootstrap_options = c("hover","condensed", "responsive")) %>%
+  kableExtra::add_footnote(label = c("Note: The initiation of contractions in a pregnant woman who is not in labour to help her achieve a vaginal birth within 24 to 48 hours."))
+```
