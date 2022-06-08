@@ -34,9 +34,9 @@ dta <- readr::read_csv("data/NSAtleePD.csv") %>%
 
 <!-- # (PART) Deliveries and Births {-} -->
 
-# Perinatal and Infant Mortality
+# Perinatal and Infant Mortality {#section-2}
 
-## Perinatal mortality by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)`
+## Perinatal mortality by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-21}
 
 ```{r plot21, fig.cap= paste('Perinatal mortality by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
@@ -189,7 +189,7 @@ kableExtra::add_footnote(label = c("Sex could not be determined in some infants 
                                    "Note: Stillbirth refers to the complete expulsion or extraction from its mother after at least 20 weeks pregnancy, or after attaining a weight of 500 g or more, of a fetus in whom, after such expulsion or extraction, there is no breathing, beating of the heart, pulsation of the umbilical cord, or unmistakable movement of voluntary muscle. Early neonatal mortality refers to the death of a liveborn infant, occurring up to the sixth completed day of life (6 days, 23 hours and 59 minutes). Perinatal mortality includes both stillbirths and early neonatal deaths."))
 ```
 
-## Infant mortality by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)`
+## Infant mortality by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-22}
 
 ```{r plot22, fig.cap= paste('Infant mortality by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 

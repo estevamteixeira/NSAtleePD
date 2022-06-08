@@ -58,7 +58,7 @@ if (is_on_ghactions){
 If you find the report useful, please support it by:
 
 - Telling people about it in person.
-- [Citing](https://github.com/Robinlovelace/geocompr/raw/main/CITATION.bib) or [linking-to](https://geocompr.robinlovelace.net/) it
+- [Citing](https://github.com/Robinlovelace/geocompr/raw/main/CITATION.bib) or [linking-to](http://rcp.nshealth.ca/sites/default/files/publications/APD_Report_2010_2019.pdf) it
 - '[Starring](https://help.github.com/articles/about-stars/)' the [NSAtleePD GitHub repository](https://github.com/estevamteixeira/NSAtleePD)
 - Asking questions about or making suggestion on the content via [peru@dal.ca](peru@dal.ca).
 ```

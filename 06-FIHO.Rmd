@@ -1,0 +1,173 @@
+---
+params:
+  year1: 2010
+  year2: 2019
+fig.caption: yes
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  message = FALSE, 
+  warning = FALSE,
+  fig.pos = "h", 
+  out.extra = "",
+  out.width = "90%",
+  fig.align = "center",
+  eval.after = "fig.cap")
+
+pckgs <- c("tidyverse", "knitr", "scales","janitor",
+           "kableExtra", "formattable","data.table",
+           "forcats","lubridate", "anytime","reactable",
+           "htmltools", "plotly","purrr")
+# for (pp in `pckgs`)00/870 { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(pckgs, character.only = TRUE)
+## data input
+
+# add data
+dta <- readr::read_csv("data/NSAtleePD.csv") %>%
+  setDT() %>%
+  .[data.table::between(BrthYear, params$year1, params$year2), ]
+```
+
+<!-- # (PART) Deliveries and Births {-} -->
+  
+# Fetal and Infant Health Outcomes {#section-6}
+  
+## Low birth weight by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-61}
+  
+```{r plot61, fig.cap= paste('Low birth weight by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+                BIRTHWT,
+                BTOUTCOM
+                )] %>%
+  .[, `:=` (lbw = fcase(
+    BIRTHWT < 1000, 1,
+    between(BIRTHWT, 1000, 1499), 2,
+    between(BIRTHWT, 1500, 2499), 3,
+    BIRTHWT >= 2500, 4,
+   default = 0
+    ))] %>%
+  .[!lbw %in% 0 &
+     # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (lbw = factor(lbw,
+                                  levels = c(1, 2, 3, 4),
+                                  labels = c("weight < 1000 g",
+                                             "1000 g \u2264 weight < 1500 g",
+                                             "1500 g \u2264 weight < 2500 g",
+                                             "weight \u2265 2500 g")))]
+
+## getting color for plotting
+
+pal <- c("weight < 1000 g" = "#1b9e77",
+         "1000 g \u2264 weight < 1500 g" = "#d95f02",
+         "1500 g \u2264 weight < 2500 g" = "#7570b3",
+         "weight \u2265 2500 g" = "#e7298a")
+
+plot <- ggplot(data = dta1[!lbw %in% c("weight \u2265 2500 g")],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = lbw,
+                   colour = lbw,
+                   fill = lbw,
+                   shape = lbw,
+                   text =paste(lbw,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = lbw, fill = lbw, shape = lbw)) +
+  geom_line(aes(color = lbw, fill = lbw)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15, 16, 17)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = '% of deliveries', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+```
+
+```{r tbl61}
+tbl <- dta[, .(BrthYear,
+                BIRTHWT,
+               BTOUTCOM
+                )] %>%
+  .[, `:=` (lbw = fcase(
+    BIRTHWT < 1000, 1,
+    between(BIRTHWT, 1000, 1499), 2,
+    between(BIRTHWT, 1500, 2499), 3,
+    BIRTHWT >= 2500, 4,
+   default = 0
+    ))] %>%
+  .[!lbw %in% c(0,4) &
+     # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (lbw = fifelse(tolower(variable) %in% "total",
+                          0, lbw))] %>%
+  .[, .(BrthYear, lbw, value)] %>%
+  unique() %>%
+  dcast(lbw ~ BrthYear, value.var = "value")
+
+coln <- names(tbl)
+coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
+names(tbl) <- coln
+
+tbl[,1] <- c("# live births", "weight < 1000 g", "1000 g \u2264 weight < 1500 g", "1500 g \u2264 weight < 2500 g")
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                            bootstrap_options = c("hover","condensed", "responsive")) %>%
+  kableExtra::add_footnote(label = c("With known birth weight."))
+```

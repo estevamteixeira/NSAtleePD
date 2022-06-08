@@ -34,9 +34,9 @@ dta <- readr::read_csv("data/NSAtleePD.csv") %>%
 
 <!-- # (PART) Deliveries and Births {-} -->
 
-# Deliveries and Births
+# Deliveries and Births {#section-1}
 
-## Number of deliveries (live births and stillbirths) to residents by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)`
+## Number of deliveries (live births and stillbirths) to residents by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-11}
 
 ```{r tbl11}
 
@@ -75,7 +75,7 @@ kableExtra::kable_styling(font_size = 12)
 ```
 
 
-## Number of births by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)`
+## Number of births by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-12}
 
 ```{r plot11, fig.cap= paste('Number of births by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
@@ -127,7 +127,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
                  font = list(face = "bold", size = 10))
 ```
 
-## Number of births by outcome, sex, and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)`
+## Number of births by outcome, sex, and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-13}
 
 ```{r tbl12}
 tbl <- dta[, .(BrthYear, 
@@ -183,7 +183,7 @@ kableExtra::add_footnote(label = c("Sex could not be determined in some infants 
 "Note: Stillbirth refers to the complete expulsion or extraction from its mother after at least 20 weeks pregnancy, or after attaining a weight of 500 g or more, of a fetus in whom, after such expulsion or extraction, there is no breathing, beating of the heart, pulsation of the umbilical cord, or unmistakable movement of voluntary muscle."))
 ```
 
-## Deliveries resulting from assisted reproductive technology, Nova Scotia, `r paste0(params$year1,"-",params$year2)`
+## Deliveries resulting from assisted reproductive technology, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-14}
 
 ```{r plot12, fig.cap= paste('Deliveries resulting from assisted reproductive technology, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
