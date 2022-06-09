@@ -1,0 +1,7 @@
+@book{nsapd_2021,
+  place={Halifax, Nova Scotia, Canada},
+  title={Nova Scotia Atlee Perinatal Database Report of Indicators: 2010-2019},
+  publisher={Perinatal Epidemiology Research Unit}
+  author={Mehrabadi, Azar and Kuhle, Stefan and Woolcott, Christy and Dodds, Linda},
+  year={2021}
+}
