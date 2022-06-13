@@ -107,7 +107,7 @@ plot <- ggplot(data = dta1[!lbw %in% c("weight \u2265 2500 g")],
     breaks = pretty,
     labels = scales::percent_format(accuracy = 1),
     limits = c(0, NA)) +
-  labs(y = '% of deliveries', x = '') +
+  labs(y = '% of live births', x = '') +
   theme_minimal()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
@@ -170,4 +170,1508 @@ kableExtra::row_spec(0, bold = TRUE) %>%
 kableExtra::kable_styling(font_size = 12, full_width = FALSE,
                             bootstrap_options = c("hover","condensed", "responsive")) %>%
   kableExtra::add_footnote(label = c("With known birth weight."))
+```
+
+## Macrosomia by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-62}
+  
+```{r plot62, fig.cap= paste('Macrosomia by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+                BIRTHWT,
+                BTOUTCOM
+                )] %>%
+  .[, `:=` (lbw = fcase(
+    BIRTHWT <= 4000, 1,
+    between(BIRTHWT, 4001, 4500), 2,
+    BIRTHWT > 4500, 3,
+   default = 0
+    ))] %>%
+  .[!lbw %in% 0 &
+     # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (lbw = factor(lbw,
+                                  levels = c(1, 2, 3),
+                                  labels = c("weight \u2264 4000 g",
+                                             "4000 g < weight \u2264 4500 g",
+                                             "weight > 4500 g")))]
+
+## getting color for plotting
+
+pal <- c("weight \u2264 4000 g" = "#1b9e77",
+         "4000 g < weight \u2264 4500 g" = "#d95f02",
+         "weight > 4500 g" = "#7570b3")
+
+plot <- ggplot(data = dta1[!lbw %in% c("weight \u2264 4000 g")],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = lbw,
+                   colour = lbw,
+                   fill = lbw,
+                   shape = lbw,
+                   text =paste(lbw,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = lbw, fill = lbw, shape = lbw)) +
+  geom_line(aes(color = lbw, fill = lbw)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15, 16)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = '% of live births', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+```
+
+```{r tbl62}
+tbl <- dta[, .(BrthYear,
+                BIRTHWT,
+               BTOUTCOM
+                )] %>%
+  .[, `:=` (lbw = fcase(
+    BIRTHWT <= 4000, 1,
+    between(BIRTHWT, 4001, 4500), 2,
+    BIRTHWT > 4500, 3,
+   default = 0
+    ))] %>%
+  .[!lbw %in% c(0,1) &
+     # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (lbw = fifelse(tolower(variable) %in% "total",
+                          0, lbw))] %>%
+  .[, .(BrthYear, lbw, value)] %>%
+  unique() %>%
+  dcast(lbw ~ BrthYear, value.var = "value")
+
+coln <- names(tbl)
+coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+names(tbl) <- coln
+
+tbl[,1] <- c("# live births", "4000 g < weight \u2264 4500 g", "weight > 4500 g")
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                            bootstrap_options = c("hover","condensed", "responsive")) %>%
+  kableExtra::add_footnote(label = c("With known birth weight."))
+```
+
+## Small for gestational age by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-63}
+  
+```{r plot63, fig.cap= paste('Small for gestational age by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+                Wgt4Age,
+                BTOUTCOM
+                )] %>%
+  .[!is.na(Wgt4Age) &
+    # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (lbw = fcase(
+    Wgt4Age %in% 1, 1,
+    Wgt4Age %in% c(2,3), 2,
+    Wgt4Age >= 4, 3,
+   default = 0
+    ) )] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (lbw = factor(lbw,
+                                  levels = c(1, 2, 3),
+                                  labels = c("< 3\u02b3\u1d48 percentile",
+                                             "[3\u02b3\u1d48, 10\u1d57\u02b0) percentile",
+                                             "\u2265 10\u1d57\u02b0 percentile")))]
+
+## getting color for plotting
+
+pal <- c("< 3\u02b3\u1d48 percentile" = "#1b9e77",
+         "[3\u02b3\u1d48, 10\u1d57\u02b0) percentile" = "#d95f02",
+         "\u2265 10\u1d57\u02b0 percentile" = "#7570b3")
+
+plot <- ggplot(data = dta1[!lbw %in% "[3\u02b3\u1d48, 10\u1d57\u02b0) percentile"],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = lbw,
+                   colour = lbw,
+                   fill = lbw,
+                   shape = lbw,
+                   text =paste(lbw,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = lbw, fill = lbw, shape = lbw)) +
+  geom_line(aes(color = lbw, fill = lbw)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15, 16)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = '% of live births', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+```
+
+```{r tbl63}
+tbl <- dta[, .(BrthYear,
+                Wgt4Age,
+                BTOUTCOM
+                )] %>%
+  .[!is.na(Wgt4Age) &
+    # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (lbw = fcase(
+    Wgt4Age %in% 1, 1,
+    Wgt4Age %in% c(2,3), 2,
+    Wgt4Age >= 4, 3,
+   default = 0
+    ) )] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !lbw %in% 2] %>%
+  .[, `:=` (lbw = fifelse(tolower(variable) %in% "total",
+                          0, lbw))] %>%
+  .[, .(BrthYear, lbw, value)] %>%
+  unique() %>%
+  dcast(lbw ~ BrthYear, value.var = "value")
+
+coln <- names(tbl)
+coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+names(tbl) <- coln
+
+tbl[,1] <- c("# live births", "< 3\u02b3\u1d48 percentile", "\u2265 10\u1d57\u02b0 percentile")
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                            bootstrap_options = c("hover","condensed", "responsive")) %>%
+  kableExtra::add_footnote(label = c("With known birth weight and gestational age.",
+                                     "Note: Size for gestational age is based on sex-specific percentiles of birth weight for gestational age relative to a Canadian reference population [Ref: Kramer et al. A New and Improved Population-Based Canadian Reference for Birth Weight for Gestational Age. Pediatrics 2001; 108 (2):e35]."))
+```
+
+## Large for gestational age by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-64}
+  
+```{r plot64, fig.cap= paste('Large for gestational age by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+                Wgt4Age,
+                BTOUTCOM
+                )] %>%
+  .[!is.na(Wgt4Age) &
+    # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (lbw = fcase(
+    Wgt4Age <= 5 , 1,
+    Wgt4Age %in% c(6,7), 2,
+    Wgt4Age %in% 8, 3,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (lbw = factor(lbw,
+                                  levels = c(1, 2, 3),
+                                  labels = c("\u2264 90\u1d57\u02b0 percentile",
+                                             "[90\u1d57\u02b0, 95\u1d57\u02b0) percentile",
+                                             "\u2265 95\u1d57\u02b0 percentile")))]
+
+## getting color for plotting
+
+pal <- c("\u2264 90\u1d57\u02b0 percentile" = "#1b9e77",
+         "[90\u1d57\u02b0, 95\u1d57\u02b0) percentile" = "#d95f02",
+         "\u2265 95\u1d57\u02b0 percentile" = "#7570b3")
+
+plot <- ggplot(data = dta1[!lbw %in% "[90\u1d57\u02b0, 95\u1d57\u02b0) percentile"],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = lbw,
+                   colour = lbw,
+                   fill = lbw,
+                   shape = lbw,
+                   text =paste(lbw,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = lbw, fill = lbw, shape = lbw)) +
+  geom_line(aes(color = lbw, fill = lbw)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15, 16)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = '% of live births', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+```
+
+```{r tbl64}
+tbl <- dta[, .(BrthYear,
+                Wgt4Age,
+                BTOUTCOM
+                )] %>%
+  .[!is.na(Wgt4Age) &
+    # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (lbw = fcase(
+    Wgt4Age <= 5 , 1,
+    Wgt4Age %in% c(6,7), 2,
+    Wgt4Age %in% 8, 3,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !lbw %in% 2] %>%
+  .[, `:=` (lbw = fifelse(tolower(variable) %in% "total",
+                          0, lbw))] %>%
+  .[, .(BrthYear, lbw, value)] %>%
+  unique() %>%
+  dcast(lbw ~ BrthYear, value.var = "value")
+
+coln <- names(tbl)
+coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+names(tbl) <- coln
+
+tbl[,1] <- c("# live births", "\u2264 90\u1d57\u02b0 percentile", "\u2265 95\u1d57\u02b0 percentile")
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                            bootstrap_options = c("hover","condensed", "responsive")) %>%
+  kableExtra::add_footnote(label = c("With known birth weight and gestational age.",
+                                     "Note: Size for gestational age is based on sex-specific percentiles of birth weight for gestational age relative to a Canadian reference population [Ref: Kramer et al. A New and Improved Population-Based Canadian Reference for Birth Weight for Gestational Age. Pediatrics 2001; 108 (2):e35]."))
+```
+
+## Preterm births by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-65}
+  
+```{r plot65, fig.cap= paste('Preterm births by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+                GA_BEST,
+                BTOUTCOM
+                )] %>%
+  .[!is.na(GA_BEST) &
+    # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (pret = fcase(
+    GA_BEST < 28, 1,
+    GA_BEST < 32, 2,
+    GA_BEST < 34, 3,
+    GA_BEST < 37, 4,
+    GA_BEST >= 37, 5,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, pret)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (pret = factor(pret,
+                                  levels = c(1, 2, 3, 4, 5),
+                                  labels = c("< 28 weeks",
+                                             "< 32 weeks",
+                                             "< 34 weeks",
+                                             "< 37 weeks",
+                                             "\u2265 37 weeks")))]
+
+## getting color for plotting
+
+pal <- c("< 28 weeks" = "#1b9e77",
+         "< 32 weeks" = "#d95f02",
+         "< 34 weeks" = "#7570b3",
+         "< 37 weeks" = "#e7298a",
+         "\u2265 37 weeks" = "#66a61e")
+
+plot <- ggplot(data = dta1[!pret %in% "\u2265 37 weeks"],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = pret,
+                   colour = pret,
+                   fill = pret,
+                   shape = pret,
+                   text =paste(pret,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = pret, fill = pret, shape = pret)) +
+  geom_line(aes(color = pret, fill = pret)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15, 16, 17, 18)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = '% of live births', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+```
+
+```{r tbl65}
+tbl <- dta[, .(BrthYear,
+                GA_BEST,
+                BTOUTCOM
+                )] %>%
+  .[!is.na(GA_BEST) &
+    # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (pret = fcase(
+    GA_BEST < 28, 1,
+    GA_BEST < 32, 2,
+    GA_BEST < 34, 3,
+    GA_BEST < 37, 4,
+    GA_BEST >= 37, 5,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, pret)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !pret %in% 5] %>%
+  .[, `:=` (pret = fifelse(tolower(variable) %in% "total",
+                          0, pret))] %>%
+  .[, .(BrthYear, pret, value)] %>%
+  unique() %>%
+  dcast(pret ~ BrthYear, value.var = "value")
+
+coln <- names(tbl)
+coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
+names(tbl) <- coln
+
+tbl[,1] <- c("# live births", "< 28 weeks", "< 32 weeks", "< 34 weeks", "< 37 weeks")
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                            bootstrap_options = c("hover","condensed", "responsive")) %>%
+  kableExtra::add_footnote(label = c("With known gestational age.",
+                                     "Note: The derivation of gestational age is primarily based on the date of the mother's last menstrual period (LMP). If LMP is unknown or LMP-estimated gestational age is discordant with that estimated by early fetal ultrasound measurements, then gestational age based on early fetal ultrasound measurements is used. If early fetal ultrasound measurements are unavailable and gestational age based on LMP is discordant from that clinically estimated by the neonatal physical exam, then the clinically estimated gestational age is used."))
+```
+
+## Birth injury by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-66}
+  
+```{r plot66, fig.cap= paste('Birth injury by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+                R082_00100, R082_00200, R082_00300, R082_00400, R082_00500,
+                R084,
+                IP100, IP101, IP103, IP108,
+                IP132, IP1330, IP134, IP138,
+                IP140, IP143,
+                BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (clav = fcase(
+    R082_00100 >=1 | IP134 >=1, 1,
+   default = 0
+    ),
+   fem = fcase(
+    R082_00200 >=1 | IP132 >=1, 1,
+   default = 0
+    ),
+   hum = fcase(
+    R082_00300 >=1 | IP1330 >=1, 1,
+   default = 0
+    ),
+   oth = fcase(
+    R082_00400 >=1 | R082_00500 >=1 | IP138 >=1, 1,
+   default = 0
+    ),
+   cerebhem = fcase(
+    IP100 >=1 | IP101 >=1 | IP103 >=1 | IP108 >=1, 1,
+   default = 0
+    ),
+   brpalsy = fcase(
+    R084 >=1 | IP140 >=1 | IP143 >=1, 1,
+   default = 0
+    ))] %>%
+  .[,`:=` (trauma = fcase(
+    clav >=1 | fem >=1 | hum >=1 | oth >=1 | cerebhem >=1 | brpalsy >=1, 1,
+    default = 0
+  ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, trauma)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (trauma = factor(trauma,
+                                  levels = c(0,1),
+                                  labels = c("No",
+                                             "Birth injury")))]
+
+## getting color for plotting
+
+pal <- c("No" = "#1b9e77",
+         "Birth injury" = "#d95f02")
+
+plot <- ggplot(data = dta1[!trauma %in% "No"],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = trauma,
+                   colour = trauma,
+                   fill = trauma,
+                   #shape = trauma,
+                   text =paste(trauma,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = trauma, fill = trauma)) +
+  geom_line(aes(color = trauma, fill = trauma)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  # scale_shape_manual(name = "",
+  #                    values = c(15, 16, 17, 18)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = .1),
+    limits = c(0, NA)) +
+  labs(y = '% of live births', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = FALSE)
+```
+
+```{r tbl66}
+tbl <- dta[, .(BrthYear,
+                R082_00100, R082_00200, R082_00300, R082_00400, R082_00500,
+                R084,
+                IP100, IP101, IP103, IP108,
+                IP132, IP1330, IP134, IP138,
+                IP140, IP143,
+                BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (clav = fcase(
+    R082_00100 >=1 | IP134 >=1, 1,
+   default = 0
+    ),
+   fem = fcase(
+    R082_00200 >=1 | IP132 >=1, 1,
+   default = 0
+    ),
+   hum = fcase(
+    R082_00300 >=1 | IP1330 >=1, 1,
+   default = 0
+    ),
+   oth = fcase(
+    R082_00400 >=1 | R082_00500 >=1 | IP138 >=1, 1,
+   default = 0
+    ),
+   cerebhem = fcase(
+    IP100 >=1 | IP101 >=1 | IP103 >=1 | IP108 >=1, 1,
+   default = 0
+    ),
+   brpalsy = fcase(
+    R084 >=1 | IP140 >=1 | IP143 >=1, 1,
+   default = 0
+    ))] %>%
+  .[,`:=` (trauma = fcase(
+    clav >=1 | fem >=1 | hum >=1 | oth >=1 | cerebhem >=1 | brpalsy >=1, 1,
+    default = 0
+  ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, trauma)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !trauma %in% 0 ] %>%
+  .[, `:=` (trauma = fifelse(tolower(variable) %in% "total",
+                               0, trauma))] %>%
+  .[, .(BrthYear, trauma, value)] %>%
+  unique() %>%
+  dcast(trauma ~ BrthYear, value.var = "value")
+
+coln <- names(tbl)
+coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl) <- coln
+
+tbl[,1] <- c("# live births", "Birth injury")
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                            bootstrap_options = c("hover","condensed", "responsive")) %>%
+  kableExtra::add_footnote(label = c("Note: Any injury to the infant occurring during delivery such as fracture (e.g., femur, clavicle, rib, humerus, depressed skull) or central nervous system trauma (e.g., cerebral hemorrhage, spinal cord hemorrhage, brachial plexus palsy)."))
+```
+
+## Phototherapy by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-67}
+  
+```{r plot67, fig.cap= paste('Phototherapy by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+               R078_00100,
+               I_1YZ12JADQ,
+               BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (photot = fcase(
+    R078_00100 >=1 | I_1YZ12JADQ >=1, 1,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, photot)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (photot = factor(photot,
+                                  levels = c(0,1),
+                                  labels = c("No",
+                                             "Received phototerapy")))]
+
+## getting color for plotting
+
+pal <- c("No" = "#1b9e77",
+         "Received phototerapy" = "#d95f02")
+
+plot <- ggplot(data = dta1[!photot %in% "No"],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = photot,
+                   colour = photot,
+                   fill = photot,
+                   #shape = photot,
+                   text =paste(photot,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = photot, fill = photot)) +
+  geom_line(aes(color = photot, fill = photot)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  # scale_shape_manual(name = "",
+  #                    values = c(15, 16, 17, 18)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = '% of live births', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = FALSE)
+```
+
+```{r tbl67}
+tbl <- dta[, .(BrthYear,
+               R078_00100,
+               I_1YZ12JADQ,
+               BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (photot = fcase(
+    R078_00100 >=1 | I_1YZ12JADQ >=1, 1,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, photot)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !photot %in% 0 ] %>%
+  .[, `:=` (photot = fifelse(tolower(variable) %in% "total",
+                               0, photot))] %>%
+  .[, .(BrthYear, photot, value)] %>%
+  unique() %>%
+  dcast(photot ~ BrthYear, value.var = "value")
+
+coln <- names(tbl)
+coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl) <- coln
+
+tbl[,1] <- c("# live births", "Received phototerapy")
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                            bootstrap_options = c("hover","condensed", "responsive")) %>%
+  kableExtra::add_footnote(label = c("Note:  Phototherapy involves exposure of the neonate to coloured light in hospital (birth hospital or readmission in the neonatal period). It is given for known or suspected hyperbilirubinemia (jaundice)."))
+```
+
+## Type of respiratory distress syndrome by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-68}
+  
+```{r plot68, fig.cap= paste('Type of respiratory distress syndrome by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+               R059_00200, R059_00300, R059_00400, R059_00500, R059_00600,
+               IP220, IP221,
+               BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (rds = fcase(
+    R059_00200 >=1, 1,
+    R059_00300 >=1, 2,
+    R059_00400 >=1, 3,
+    R059_00600 >=1, 4,
+    R059_00500 >=1 | !(R059_00200 >=1 | R059_00300 >=1 | R059_00400 >=1 | R059_00600 >=1) & (IP220 >=1 | IP221 >=1), 5,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, rds)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (rds = factor(rds,
+                                  levels = c(0,1,2,3,4,5),
+                                  labels = c("No",
+                                             "Mild",
+                                             "Moderate",
+                                             "Severe",
+                                             "TTN",
+                                             "Unknown severity")))]
+
+## getting color for plotting
+
+pal <- c("No" = "#1b9e77",
+         "Mild" = "#d95f02",
+         "Moderate" = "#7570b3",
+         "Severe" = "#e7298a",
+         "TTN" = "#66a61e",
+         "Unknown severity" = "#e6ab02")
+
+plot <- ggplot(data = dta1[!rds %in% "No"],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = rds,
+                   colour = rds,
+                   fill = rds,
+                   shape = rds,
+                   text =paste(rds,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = rds, fill = rds, shape = rds)) +
+  geom_line(aes(color = rds, fill = rds)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15, 16, 17, 18, 19)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = .1),
+    limits = c(0, NA)) +
+  labs(y = '% of live births', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+```
+
+```{r tbl68}
+tbl <- dta[, .(BrthYear,
+               R059_00200, R059_00300, R059_00400, R059_00500, R059_00600,
+               IP220, IP221,
+               BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (rds = fcase(
+    R059_00200 >=1, 1,
+    R059_00300 >=1, 2,
+    R059_00400 >=1, 3,
+    R059_00600 >=1, 4,
+    R059_00500 >=1 | !(R059_00200 >=1 | R059_00300 >=1 | R059_00400 >=1 | R059_00600 >=1) & (IP220 >=1 | IP221 >=1), 5,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, rds)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !rds %in% 0 ] %>%
+  .[, `:=` (rds = fifelse(tolower(variable) %in% "total",
+                               0, rds))] %>%
+  .[, .(BrthYear, rds, value)] %>%
+  unique() %>%
+  dcast(rds ~ BrthYear, value.var = "value")
+
+temp <- sapply(tbl[-1,], sum)
+tbl <- setDT(rbind(tbl, t(as.data.frame(temp))))
+
+coln <- names(tbl)
+coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
+names(tbl) <- coln
+
+tbl[,1] <- c("# live births", "Mild", "Moderate", "Severe", "TTN", "Unknown severity", "Total RDS")
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                            bootstrap_options = c("hover","condensed", "responsive")) %>%
+  kableExtra::add_footnote(label = c("TTN = Transient tachypnea of the newborn.",
+                                     "Note: Respiratory distress syndrome (RDS) is identified by neonatal grunting, retractions, and decreased air entry that occur before 3 hours of age, persist beyond 6 hours of age, and are not explained by any other disease. Severity is categorized by the treatment given by the physician as noted in the medical record: mild, $< 35\\\\%$ oxygen; moderate, $35\\\\%$ oxygen or continuous positive airway pressure (CPAP); severe, ventilated. Note that as medical practice changes with respect to the type of treatment given, the proportion of RDS that is of unknown severity may increase"), escape = FALSE)
+```
+
+## Neonatal sepsis by birth weight and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-69}
+  
+```{r plot69, fig.cap= paste('Neonatal sepsis by birth weight and year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+               IA879,
+               IG00, IG020,
+               IP36, IP3751,
+               BIRTHWT,
+               BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (sep = fcase(
+    IA879 >=1 | IG00 >=1 | IG020 >=1 | IP36 >=1 | IP3751 >=1, 1,
+   default = 0
+    ),
+    wght = fcase(
+    BIRTHWT < 1000, 1,
+    between(BIRTHWT, 1000, 2499), 2,
+    BIRTHWT >= 2500, 3,
+   default = 0
+   ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, sep, wght)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, wght)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (sep = factor(sep,
+                                  levels = c(0,1),
+                                  labels = c("No",
+                                             "Yes")),
+                     wght = factor(wght,
+                                   levels = c(0,1,2,3),
+                                   labels = c("No",
+                                              "weight < 1000 g",
+                                              "1000 g \u2264 weight < 2500 g",
+                                              "weight \u2265 2500 g")))]
+
+## getting color for plotting
+
+pal <- c("No" = "#1b9e77",
+         "Yes" = "#d95f02")
+
+plot <- ggplot(data = dta1[!sep %in% "No" & !wght %in% "No"],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = sep,
+                   colour = sep,
+                   fill = sep,
+                   #shape = sep,
+                   text =paste(sep,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = sep, fill = sep)) +
+  geom_line(aes(color = sep, fill = sep)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  # scale_shape_manual(name = "",
+  #                    values = c(15, 16, 17, 18, 19)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = .1),
+    limits = c(0, NA)) +
+  labs(y = '% of live births', x = '') +
+  facet_wrap(~wght, ncol = 2, scales = "free") +
+  theme_minimal() +
+  theme(panel.spacing = unit(1, "lines"))
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = FALSE)
+```
+
+```{r tbl69}
+tbl <- dta[, .(BrthYear,
+               IA879,
+               IG00, IG020,
+               IP36, IP3751,
+               BIRTHWT,
+               BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (sep = fcase(
+    IA879 >=1 | IG00 >=1 | IG020 >=1 | IP36 >=1 | IP3751 >=1, 1,
+   default = 0
+    ),
+    wght = fcase(
+    BIRTHWT < 1000, 1,
+    between(BIRTHWT, 1000, 2499), 2,
+    BIRTHWT >= 2500, 3,
+   default = 0
+   ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, sep, wght)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, wght)] %>%
+  .[, `:=` (rate = 100*count/total)]
+
+tbl1 <- tbl %>%
+  .[sep %in% 1 &
+    wght %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !sep %in% 0 ] %>%
+  .[, `:=` (sep = fifelse(tolower(variable) %in% "total",
+                               0, sep))] %>%
+  .[, .(BrthYear, sep, value)] %>%
+  unique() %>%
+  dcast(sep ~ BrthYear, value.var = "value")
+
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%")))
+
+tbl1[,1] <- c("# live births", "Neonatal sepsis")
+
+tbl2 <- tbl %>%
+  .[sep %in% 1 &
+    wght %in% 2] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !sep %in% 0 ] %>%
+  .[, `:=` (sep = fifelse(tolower(variable) %in% "total",
+                               0, sep))] %>%
+  .[, .(BrthYear, sep, value)] %>%
+  unique() %>%
+  dcast(sep ~ BrthYear, value.var = "value")
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%")))
+
+tbl2[,1] <- c("# live births", "Neonatal sepsis")
+
+tbl3 <- tbl %>%
+  .[sep %in% 1 &
+    wght %in% 3] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !sep %in% 0 ] %>%
+  .[, `:=` (sep = fifelse(tolower(variable) %in% "total",
+                               0, sep))] %>%
+  .[, .(BrthYear, sep, value)] %>%
+  unique() %>%
+  dcast(sep ~ BrthYear, value.var = "value")
+
+tbl3 <- as.data.frame(sapply(tbl3, sprintf, fmt = c("%.0f", "%1.1f%%")))
+
+tbl3[,1] <- c("# live births", "Neonatal sepsis")
+
+tbl <- setDT(rbind(tbl1, tbl2, tbl3))
+
+coln <- names(tbl)
+coln[1] <- ""
+
+names(tbl) <- coln
+
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                            bootstrap_options = c("hover","condensed", "responsive")) %>%
+kableExtra::group_rows("weight < 1000 g", start_row = 1, end_row = 2) %>%
+kableExtra::group_rows("1000 g \u2264 weight < 2500 g", start_row = 3, end_row = 4) %>%
+kableExtra::group_rows("weight \u2265 2500 g", start_row = 5, end_row = 5) %>%
+kableExtra::add_footnote(label = c("Note: Pneumonia, either intrauterine or postnatal, or positive blood/cerebrospinal fluid cultures."))
+```
+
+## Newborn length of stay (days) by birth weight and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-610}
+  
+```{r plot610, fig.cap= paste('Newborn length of stay (days) by birth weight and year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+                Infant_LoS,
+                DIFINOUT,
+                BIRTHWT
+                )] %>%
+  .[# discharged babies alive
+    DIFINOUT %in% "LVD"] %>%
+  .[,`:=` (wght = fcase(
+    BIRTHWT < 1000, 1,
+    between(BIRTHWT, 1000, 2499), 2,
+    BIRTHWT >= 2500, 3,
+   default = 0
+   ))] %>%
+  .[, `:=` (total = .N,
+            # /24 - convert to days
+            mean = mean(Infant_LoS/24, na.rm = TRUE),
+            med = median(Infant_LoS/24, na.rm = TRUE)), by = list(BrthYear, wght)] %>%
+  unique()
+
+dta1 <- dta1[, `:=` (wght = factor(wght,
+                                   levels = c(0,1,2,3),
+                                   labels = c("No",
+                                              "weight < 1000 g",
+                                              "1000 g \u2264 weight < 2500 g",
+                                              "weight \u2265 2500 g")))]
+
+## getting color for plotting
+
+pal <- c("No" = "#1b9e77",
+         "weight < 1000 g" = "#d95f02",
+         "1000 g \u2264 weight < 2500 g" = "#7570b3",
+         "weight \u2265 2500 g" = "#e7298a")
+
+plot <- ggplot(data = dta1[!wght %in% "No"],
+               aes(x = BrthYear,
+                   y = med,
+                   group = wght,
+                   colour = wght,
+                   fill = wght,
+                   shape = wght,
+                   text =paste(wght,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% Median lenght of stay (in days):" , scales::comma(med, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = wght, fill = wght, shape = wght)) +
+  geom_line(aes(color = wght, fill = wght)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(15, 16, 17)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = .1),
+    limits = c(0, NA)) +
+  labs(y = 'Median neonatal LoS (in days)', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+```
+
+```{r tbl610}
+tbl <- dta[, .(BrthYear,
+                Infant_LoS,
+                DIFINOUT,
+                BIRTHWT
+                )] %>%
+  .[# discharged babies alive
+    DIFINOUT %in% "LVD"] %>%
+  .[,`:=` (wght = fcase(
+    BIRTHWT < 1000, 1,
+    between(BIRTHWT, 1000, 2499), 2,
+    BIRTHWT >= 2500, 3,
+   default = 0
+   ))] %>%
+  .[, `:=` (total = .N,
+            # /24 - convert to days
+            mean = mean(Infant_LoS/24, na.rm = TRUE),
+            med = median(Infant_LoS/24, na.rm = TRUE)), by = list(BrthYear, wght)] %>%
+  unique() %>%
+  melt(measure.vars = c("total", "mean", "med")) %>%
+   .[!wght %in% 0 ] %>%
+  # .[, `:=` (wght = fifelse(tolower(variable) %in% "total",
+  #                              0, wght))] %>%
+  .[, .(BrthYear, wght, variable, value)] %>%
+  unique() 
+
+tbl1 <- tbl %>%
+  .[wght %in% 1] %>%
+  dcast(variable ~ BrthYear, value.var = "value")
+
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%.1f", "%.1f")))
+
+tbl1[,1] <- c("# births", "Mean (in days)", "Median (in days)")
+
+tbl2 <- tbl %>%
+  .[wght %in% 2] %>%
+  dcast(variable ~ BrthYear, value.var = "value")
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%.1f", "%.1f")))
+
+tbl2[,1] <- c("# births", "Mean (in days)", "Median (in days)")
+
+tbl3 <- tbl %>%
+  .[wght %in% 3] %>%
+  dcast(variable ~ BrthYear, value.var = "value")
+
+tbl3 <- as.data.frame(sapply(tbl3, sprintf, fmt = c("%.0f", "%.1f", "%.1f")))
+
+tbl3[,1] <- c("# births", "Mean (in days)", "Median (in days)")
+
+tbl <- setDT(rbind(tbl1, tbl2, tbl3))
+
+coln <- names(tbl)
+coln[1] <- ""
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                            bootstrap_options = c("hover","condensed", "responsive")) %>%
+kableExtra::group_rows("weight < 1000 g", start_row = 1, end_row = 3) %>%
+kableExtra::group_rows("1000 g \u2264 weight < 2500 g", start_row = 4, end_row = 6) %>%
+kableExtra::group_rows("weight \u2265 2500 g", start_row = 7, end_row = 9) %>%
+  kableExtra::add_footnote(label = c("Number of births of infants who survived to hospital discharge."))
+```
+
+## Neonatal withdrawal from maternal use of opioids by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-611}
+  
+```{r plot611, fig.cap= paste('Neonatal withdrawal from maternal use of opioids by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+
+dta1 <- dta[, .(BrthYear,
+                R067,
+                IP961,
+                R004_00700, R004_00710, R004_00720, R004_00730,
+                R005_00400,R005_00500, R005_00600, R005_00800, R005_01100, R005_01600,
+                MF11,
+                BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, nas := rowSums(.SD, na.rm = TRUE), .SDcols = c("R067", "IP961")] %>%
+  .[, mum := rowSums(.SD, na.rm = TRUE), .SDcols = c("R004_00700", "R004_00710", "R004_00720", "R004_00730", "R005_00400", "R005_00500", "R005_00600", "R005_00800", "R005_01100", "R005_01600", "MF11")] %>%
+  .[,`:=` (nas_opi = fcase(
+    nas >=1, 1,
+   default = 0
+    ),
+   mum_opi = fcase(
+     mum >=1, 1,
+     default = 0
+   ))] %>%
+  .[,`:=` (noas = fcase(
+    nas_opi >=1 & mum_opi >= 1, 1,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, noas)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (noas = factor(noas,
+                                  levels = c(0,1),
+                                  labels = c("No",
+                                             "Neonatal withdrawal")))]
+
+## getting color for plotting
+
+pal <- c("No" = "#1b9e77",
+         "Neonatal withdrawal" = "#d95f02")
+
+plot <- ggplot(data = dta1[!noas %in% "No"],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = noas,
+                   colour = noas,
+                   fill = noas,
+                   #shape = noas,
+                   text =paste(noas,
+                               "<br>Year:", BrthYear,
+                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = noas, fill = noas)) +
+  geom_line(aes(color = noas, fill = noas)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  # scale_shape_manual(name = "",
+  #                    values = c(15, 16, 17, 18, 19)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = .1),
+    limits = c(0, NA)) +
+  labs(y = '% of live births', x = '') +
+  theme_minimal()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = FALSE)
+```
+
+```{r tbl611}
+tbl <- dta[, .(BrthYear,
+                R067,
+                IP961,
+                R004_00700, R004_00710, R004_00720, R004_00730,
+                R005_00400,R005_00500, R005_00600, R005_00800, R005_01100, R005_01600,
+                MF11,
+                BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, nas := rowSums(.SD, na.rm = TRUE), .SDcols = c("R067", "IP961")] %>%
+  .[, mum := rowSums(.SD, na.rm = TRUE), .SDcols = c("R004_00700", "R004_00710", "R004_00720", "R004_00730", "R005_00400", "R005_00500", "R005_00600", "R005_00800", "R005_01100", "R005_01600", "MF11")] %>%
+  .[,`:=` (nas_opi = fcase(
+    nas >=1, 1,
+   default = 0
+    ),
+   mum_opi = fcase(
+     mum >=1, 1,
+     default = 0
+   ))] %>%
+  .[,`:=` (noas = fcase(
+    nas_opi >=1 & mum_opi >= 1, 1,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, noas)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !noas %in% 0 ] %>%
+  .[, `:=` (noas = fifelse(tolower(variable) %in% "total",
+                               0, noas))] %>%
+  .[, .(BrthYear, noas, value)] %>%
+  unique() %>%
+  dcast(noas ~ BrthYear, value.var = "value")
+
+coln <- names(tbl)
+coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
+names(tbl) <- coln
+
+tbl[,1] <- c("# live births", "Neonatal withdrawal")
+
+knitr::kable(tbl,
+             format = "html",
+             booktabs = TRUE) %>%
+  # add an hline before the total
+  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+kableExtra::row_spec(0, bold = TRUE) %>%
+#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+                            bootstrap_options = c("hover","condensed", "responsive")) %>%
+  kableExtra::add_footnote(label = c("Neonatal withdrawal symptoms from maternal dependency on opioid drugs. Does not include neonatal reactions from opioid
+drugs administered to the mother during labour or delivery."))
 ```

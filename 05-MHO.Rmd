@@ -1572,7 +1572,7 @@ plot <- ggplot(data = dta1,
                    #shape = BrthYear,
                    text =paste(BrthYear,
                                "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>% Median lenght of stay (in hours):" , scales::percent(med, accuracy = .1)
+                               "<br>% Median lenght of stay (in hours):" , scales::comma(med, accuracy = .1)
                    )
                )
 ) +
