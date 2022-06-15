@@ -17,10 +17,10 @@ knitr::opts_chunk$set(
   eval.after = "fig.cap")
 
 pckgs <- c('tidyverse', 'knitr', 'scales','janitor',
-           'kableExtra', 'formattable','data.table',
+           'kableExtra', 'data.table','reactablefmtr',
            'forcats','lubridate', 'anytime','reactable',
            'htmltools', 'plotly','purrr')
-# for (pp in `pckgs`)00/870 { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+# for (pp in `pckgs`) { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
 
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(pckgs, character.only = TRUE)
@@ -56,22 +56,47 @@ tbl <- dta[, .(BrthYear,
   # build 2x2 table
   janitor::tabyl(dlv, BrthYear) %>%
    # add column totals
-janitor::adorn_totals(c("row")) %>%
+janitor::adorn_totals(c("row")) 
 #dplyr::mutate_if(is.numeric, scales::comma_format()) %>%
   # formating the percentage value
 #janitor::adorn_percentages("col") %>%
 #janitor::adorn_pct_formatting(digits = 0) %>%
 #janitor::adorn_ns(ns = frmt_ns) %>%
   # add titles
-janitor::adorn_title(row_name = "",
-              col_name = "")
+# janitor::adorn_title(row_name = "",
+              # col_name = "")
 
-knitr::kable(tbl) %>%
-  # add an hline before the total
-kableExtra::row_spec(nrow(tbl) - 2, hline_after = TRUE) %>%  kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12)
+# knitr::kable(tbl) %>%
+#   # add an hline before the total
+# kableExtra::row_spec(nrow(tbl) - 2, hline_after = TRUE) %>%  kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12)
+
+## using reactable package for table appearance
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE, 
+          defaultColDef = colDef(align = "right", 
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50),
+          rowStyle = function(index){
+            if (index == nrow(tbl)) list(color = "black",
+                                         backgroundColor = "#e1e1e1",
+                                         fontWeight = "bold", align = "center")
+          },
+          columns = list(
+            dlv = colDef(name = "",
+                         align = "left",
+                         width = 180)
+          )
+)
 ```
 
 
@@ -92,14 +117,14 @@ plot <- ggplot(data = dta1,
                aes(x = BrthYear,
                    y = count,
                    group = 1,
-                   text = paste("<br>Year:", BrthYear,
-                                "<br># births:", scales::comma(count, accuracy = 1)
+                   text = paste(BrthYear,
+                                "<br>Total births:", scales::comma(count, accuracy = 1)
                                 )
                    )
                ) +
-  geom_point(color = "#757575",
+  geom_point(color = "#1b9e77",
              show.legend = FALSE) +
-  geom_line(color = "#757575",
+  geom_line(color = "#1b9e77",
             show.legend = FALSE,
             alpha = 0.65) +
   # scale_x_date(date_breaks = "2 years",
@@ -111,7 +136,7 @@ plot <- ggplot(data = dta1,
     labels = scales::comma_format(accuracy = 1),
     limits = c(0, NA)) +
   labs(y = 'Number of births', x = '') +
-  theme_minimal()
+  theme_classic()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
@@ -123,8 +148,10 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
       face = "bold"
     )
   )) %>%
-  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.35),
-                 font = list(face = "bold", size = 10))
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = FALSE)
 ```
 
 ## Number of births by outcome, sex, and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-13}
@@ -150,12 +177,12 @@ tbl <- dta[, .(BrthYear,
 tbl.f <- tbl[tolower(BTSEX) %in% "female",] %>% 
   janitor::tabyl(dlv, BrthYear) %>%
    # add column totals
-janitor::adorn_totals(c("row"), name = "Female births")
+janitor::adorn_totals(c("row"), name = "Total Female births")
 
 tbl.m <- tbl[tolower(BTSEX) %in% "male",] %>% 
   janitor::tabyl(dlv, BrthYear) %>%
    # add column totals
-janitor::adorn_totals(c("row"), name = "Male births")
+janitor::adorn_totals(c("row"), name = "Total Male births")
 
 tbl.t <- tbl %>% 
   janitor::tabyl(dlv1, BrthYear) %>%
@@ -163,24 +190,57 @@ tbl.t <- tbl %>%
 janitor::adorn_totals(c("row"), name = "Total births") %>%
 data.table::setnames(old = "dlv1", new = "dlv")
 
-tbl <- rbind(tbl.f, tbl.m, tbl.t) %>%
+tbl <- rbind(tbl.f, tbl.m, tbl.t) 
     # add titles
-janitor::adorn_title(row_name = "",
-              col_name = "")
+# janitor::adorn_title(row_name = "",
+#               col_name = "")
 
 
-knitr::kable(tbl, 
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-kableExtra::row_spec(nrow(tbl) - 6, bold = TRUE) %>%
-kableExtra::row_spec(nrow(tbl) - 3, bold = TRUE) %>%
-kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12) %>%
-kableExtra::add_footnote(label = c("Sex could not be determined in some infants and these infants are not included in the male or female categories.",
-"Note: Stillbirth refers to the complete expulsion or extraction from its mother after at least 20 weeks pregnancy, or after attaining a weight of 500 g or more, of a fetus in whom, after such expulsion or extraction, there is no breathing, beating of the heart, pulsation of the umbilical cord, or unmistakable movement of voluntary muscle."))
+# knitr::kable(tbl, 
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+# kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# kableExtra::row_spec(nrow(tbl) - 6, bold = TRUE) %>%
+# kableExtra::row_spec(nrow(tbl) - 3, bold = TRUE) %>%
+# kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12) %>%
+# kableExtra::add_footnote(label = c("Sex could not be determined in some infants and these infants are not included in the male or female categories.",
+# "Note: Stillbirth refers to the complete expulsion or extraction from its mother after at least 20 weeks pregnancy, or after attaining a weight of 500 g or more, of a fetus in whom, after such expulsion or extraction, there is no breathing, beating of the heart, pulsation of the umbilical cord, or unmistakable movement of voluntary muscle."))
+
+## using reactable package for table appearance
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE, 
+          defaultColDef = colDef(align = "right", 
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50),
+          rowStyle = function(index){
+            if (index %in% (seq(1, nrow(tbl), by = 3) + 2)) list(color = "black",
+                                         backgroundColor = "#e1e1e1",
+                                         fontWeight = "bold", align = "center")
+          },
+          columns = list(
+            dlv = colDef(name = "",
+                         align = "left",
+                         width = 180)
+          )
+)%>%
+reactablefmtr::add_source("\u1d43 Sex could not be determined in some infants and these infants are not included in the male or female categories.",
+                          font_size = 12,
+                          #font_weight = "bold"
+                          ) %>% 
+  reactablefmtr::add_source("Note: Stillbirth refers to the complete expulsion or extraction from its mother after at least 20 weeks pregnancy, or after attaining a weight of 500 g or more, of a fetus in whom, after such expulsion or extraction, there is no breathing, beating of the heart, pulsation of the umbilical cord, or unmistakable movement of voluntary muscle.",
+                            font_size = 12,
+                            #font_weight = "bold"
+                            )
 ```
 
 ## Deliveries resulting from assisted reproductive technology, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-14}
@@ -227,17 +287,16 @@ plot <- ggplot(data = dta1,
                aes(x = BrthYear,
                    y = prop,
                    group = 1,
-                   text = paste("<br>Year:", BrthYear,
-                                "<br># births:", scales::comma(dlv, accuracy = 1),
-                                "<br># ART births:", scales::comma(art, accuracy = 1),
-                                "<br>ART %:", scales::percent(prop, accuracy = 0.1)
+                   text = paste(BrthYear,
+                                "<br>Total births:", scales::comma(dlv, accuracy = 1),
+                                "<br>Assisted reproduction (%):", scales::percent(prop, accuracy = 0.1)
                                 )
                    )
                ) +
   
-  geom_point(color = "#757575",
+  geom_point(color = "#1b9e77",
              show.legend = FALSE) +
-  geom_line(color = "#757575",
+  geom_line(color = "#1b9e77",
             show.legend = FALSE,
             alpha = 0.65) +
   # scale_x_date(date_breaks = "2 years",
@@ -249,7 +308,7 @@ plot <- ggplot(data = dta1,
     labels = scales::percent_format(accuracy = 0.1),
     limits = c(0, NA)) +
   labs(y = 'Proportion of deliveries', x = '') +
-  theme_minimal()
+  theme_classic()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
@@ -261,8 +320,10 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
       face = "bold"
     )
   )) %>%
-  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.35),
-                 font = list(face = "bold", size = 10))
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = FALSE)
 ```
 
 ```{r tbl13}
@@ -304,22 +365,56 @@ tbl <- dta[, .(BrthYear,
   melt(measure.vars = c("dlv", "art", "prop")) %>%
   dcast(variable ~ BrthYear)
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%.0f", "%1.1f%%")))
-names(tbl) <- coln
-tbl[,1] <- c("# deliveries", "# ART", "% of ART")
+#names(tbl) <- coln
+tbl[,1] <- c("Total deliveries", "Total ART", "Assisted reproduction (%)")
 
+tbl <- tbl[-2,]
 
-knitr::kable(tbl, 
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12) %>%
-kableExtra::add_footnote(label = c("Note: Assisted reproductive technology can include ovulation induction, intracytoplasmic sperm injection (ICSI), embryo transfer, or in vitro fertilization (IVF)."))
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+# knitr::kable(tbl, 
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+# kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12) %>%
+# kableExtra::add_footnote(label = c("Note: Assisted reproductive technology can include ovulation induction, intracytoplasmic sperm injection (ICSI), embryo transfer, or in vitro fertilization (IVF)."))
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE, 
+          # style = list(borderBottom = "#dddddd",
+          #              headerStyle = list(borderColor = "#dddddd")),
+          defaultColDef = colDef(align = "right", 
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index %in% (seq(1, nrow(tbl), by = 3) + 2)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold", align = "center")
+          # },
+          columns = list(
+            variable = colDef(name = "",
+                         align = "left",
+                         width = 180)
+          )
+)%>%
+reactablefmtr::add_source("Note: Assisted reproductive technology can include ovulation induction, intracytoplasmic sperm injection (ICSI), embryo transfer, or in vitro fertilization (IVF).",
+                          font_size = 12,
+                          #font_weight = "bold"
+                          ) 
 ```
 

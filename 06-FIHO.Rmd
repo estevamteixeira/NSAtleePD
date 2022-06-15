@@ -320,26 +320,39 @@ dta1 <- dta[, .(BrthYear,
     Wgt4Age %in% c(2,3), 2,
     Wgt4Age >= 4, 3,
    default = 0
-    ) )] %>%
+    ))] %>%
   .[, `:=` (count = .N), by = list(BrthYear, lbw)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[ ,.(BrthYear, lbw ,count, total, rate)] %>% 
   unique()
 
-# age category using UNICODE codes
-dta1 <- dta1[, `:=` (lbw = factor(lbw,
-                                  levels = c(1, 2, 3),
+temp <- unique(dta1) %>%
+  .[lbw %in% c(1,2)] %>%
+  .[,`:=` (lbw = 4,
+           count = sum(count),
+           total = total,
+           rate = sum(rate)), by = list(BrthYear)] %>%
+  unique()
+
+dta1 <- unique(rbind(dta1, temp))[,
+            `:=` (lbw = factor(lbw,
+                                  levels = c(1, 2, 3, 4),
                                   labels = c("< 3\u02b3\u1d48 percentile",
                                              "[3\u02b3\u1d48, 10\u1d57\u02b0) percentile",
-                                             "\u2265 10\u1d57\u02b0 percentile")))]
+                                             "\u2265 10\u1d57\u02b0 percentile",
+                                             "< 10\u1d57\u02b0 percentile")))]
+
 
 ## getting color for plotting
 
 pal <- c("< 3\u02b3\u1d48 percentile" = "#1b9e77",
          "[3\u02b3\u1d48, 10\u1d57\u02b0) percentile" = "#d95f02",
-         "\u2265 10\u1d57\u02b0 percentile" = "#7570b3")
+         "\u2265 10\u1d57\u02b0 percentile" = "#7570b3",
+         "< 10\u1d57\u02b0 percentile" = "#e7298a")
 
-plot <- ggplot(data = dta1[!lbw %in% "[3\u02b3\u1d48, 10\u1d57\u02b0) percentile"],
+plot <- ggplot(data = dta1[!lbw %in% c("[3\u02b3\u1d48, 10\u1d57\u02b0) percentile",
+                                       "\u2265 10\u1d57\u02b0 percentile")],
                aes(x = BrthYear,
                    y = rate,
                    group = lbw,
@@ -408,9 +421,21 @@ tbl <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, lbw)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = 100*count/total)] %>%
+  .[ ,.(BrthYear, lbw ,count, total, rate)] %>% 
+  unique()
+
+temp <- unique(tbl) %>%
+  .[lbw %in% c(1,2)] %>%
+  .[,`:=` (lbw = 4,
+           count = sum(count),
+           total = total,
+           rate = sum(rate)), by = list(BrthYear)] %>%
+  unique()
+
+tbl <- unique(rbind(tbl, temp)) %>%
   melt(measure.vars = c("rate", "total", "count")) %>%
   .[!tolower(variable) %in% "count" &
-    !lbw %in% 2] %>%
+    !lbw %in% c(2,3)] %>%
   .[, `:=` (lbw = fifelse(tolower(variable) %in% "total",
                           0, lbw))] %>%
   .[, .(BrthYear, lbw, value)] %>%
@@ -423,7 +448,7 @@ coln[1] <- ""
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
 names(tbl) <- coln
 
-tbl[,1] <- c("# live births", "< 3\u02b3\u1d48 percentile", "\u2265 10\u1d57\u02b0 percentile")
+tbl[,1] <- c("# live births", "< 3\u02b3\u1d48 percentile", "< 10\u1d57\u02b0 percentile")
 
 knitr::kable(tbl,
              format = "html",
@@ -458,22 +483,34 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, lbw)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[ ,.(BrthYear, lbw ,count, total, rate)] %>%
   unique()
 
-# age category using UNICODE codes
-dta1 <- dta1[, `:=` (lbw = factor(lbw,
-                                  levels = c(1, 2, 3),
+temp <- unique(dta1) %>%
+  .[lbw %in% c(2,3)] %>%
+  .[,`:=` (lbw = 4,
+           count = sum(count),
+           total = total,
+           rate = sum(rate)), by = list(BrthYear)] %>%
+  unique()
+
+dta1 <- unique(rbind(dta1, temp))[,
+            `:=` (lbw = factor(lbw,
+                                  levels = c(1, 2, 3, 4),
                                   labels = c("\u2264 90\u1d57\u02b0 percentile",
                                              "[90\u1d57\u02b0, 95\u1d57\u02b0) percentile",
-                                             "\u2265 95\u1d57\u02b0 percentile")))]
+                                             "\u2265 97\u1d57\u02b0 percentile",
+                                             "\u2265 90\u1d57\u02b0 percentile")))]
 
 ## getting color for plotting
 
 pal <- c("\u2264 90\u1d57\u02b0 percentile" = "#1b9e77",
          "[90\u1d57\u02b0, 95\u1d57\u02b0) percentile" = "#d95f02",
-         "\u2265 95\u1d57\u02b0 percentile" = "#7570b3")
+         "\u2265 97\u1d57\u02b0 percentile" = "#7570b3",
+         "\u2265 90\u1d57\u02b0 percentile" = "#e7298a")
 
-plot <- ggplot(data = dta1[!lbw %in% "[90\u1d57\u02b0, 95\u1d57\u02b0) percentile"],
+plot <- ggplot(data = dta1[!lbw %in% c("[90\u1d57\u02b0, 95\u1d57\u02b0) percentile", 
+                                       "\u2264 90\u1d57\u02b0 percentile")],
                aes(x = BrthYear,
                    y = rate,
                    group = lbw,
@@ -542,9 +579,21 @@ tbl <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, lbw)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = 100*count/total)] %>%
+   .[ ,.(BrthYear, lbw ,count, total, rate)] %>% 
+  unique()
+
+temp <- unique(tbl) %>%
+  .[lbw %in% c(2,3)] %>%
+  .[,`:=` (lbw = 4,
+           count = sum(count),
+           total = total,
+           rate = sum(rate)), by = list(BrthYear)] %>%
+  unique()
+
+tbl <- unique(rbind(tbl, temp)) %>%
   melt(measure.vars = c("rate", "total", "count")) %>%
   .[!tolower(variable) %in% "count" &
-    !lbw %in% 2] %>%
+    !lbw %in% c(1,2)] %>%
   .[, `:=` (lbw = fifelse(tolower(variable) %in% "total",
                           0, lbw))] %>%
   .[, .(BrthYear, lbw, value)] %>%
@@ -557,7 +606,7 @@ coln[1] <- ""
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
 names(tbl) <- coln
 
-tbl[,1] <- c("# live births", "\u2264 90\u1d57\u02b0 percentile", "\u2265 95\u1d57\u02b0 percentile")
+tbl[,1] <- c("# live births", "\u2265 97\u1d57\u02b0 percentile", "\u2265 90\u1d57\u02b0 percentile")
 
 knitr::kable(tbl,
              format = "html",
