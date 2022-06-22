@@ -73,7 +73,8 @@ plot <- ggplot(data = dta1[!matcat %in% c("20 \u2264 age < 35")],
                    colour = matcat,
                    fill = matcat,
                    shape = matcat,
-                   text =paste(paste0(matcat," - ",BrthYear),
+                   text =paste(matcat,
+                               "<br>Year:", BrthYear,
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",matcat," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -162,6 +163,7 @@ reactable(tbl,
           highlight = TRUE, 
           compact = TRUE,
           defaultColDef = colDef(align = "right", 
+                                 vAlign = "center",
                                  format = colFormat(locales = "en-CA", separators = TRUE),
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
@@ -219,7 +221,8 @@ plot <- ggplot(data = dta1[!matcat %in% c("20 \u2264 age < 35")],
                    shape = matcat,
                    color = matcat,
                    fill = matcat,
-                   text =paste(paste0(matcat," - ",BrthYear),
+                   text =paste(matcat,
+                               "<br>Year:", BrthYear,
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",matcat," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -311,7 +314,8 @@ reactable(tbl,
           onClick = "expand",
           highlight = TRUE, 
           compact = TRUE,
-          defaultColDef = colDef(align = "right", 
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
                                  format = colFormat(locales = "en-CA", separators = TRUE),
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
@@ -368,7 +372,8 @@ plot <- ggplot(data = dta1,
                    color = parity,
                    shape = parity,
                    fill = parity,
-                   text =paste(paste0(parity," - ",BrthYear),
+                   text =paste(parity,
+                               "<br>Year:", BrthYear,
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>", parity, " (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -459,7 +464,8 @@ reactable(tbl,
           onClick = "expand",
           highlight = TRUE, 
           compact = TRUE,
-          defaultColDef = colDef(align = "right", 
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
                                  format = colFormat(locales = "en-CA", separators = TRUE),
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
@@ -473,7 +479,7 @@ reactable(tbl,
           #                                borderBottom = "#dddddd")
           # },
           columns = list(
-            parity = colDef(name = "",
+            parity = colDef(name = "Parity",
                          align = "left",
                          width = 180)
           )
@@ -519,7 +525,8 @@ plot <- ggplot(data = dta1[!partner %in% "0"],
                    group = partner,
                    color = partner,
                    fill = partner,
-                   text =paste(paste0(partner," - ",BrthYear),
+                   text =paste(partner,
+                               "<br>Year:", BrthYear,
                                "<br>Total births:", scales::comma(total, accuracy = 1),
                                "<br>Partenered (%):" , scales::percent(rate, accuracy = .1)
                                )
@@ -615,7 +622,8 @@ reactable(tbl,
           onClick = "expand",
           highlight = TRUE, 
           compact = TRUE,
-          defaultColDef = colDef(align = "right", 
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
                                  format = colFormat(locales = "en-CA", separators = TRUE),
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
@@ -686,7 +694,8 @@ plot <- ggplot(data = dta1[!smoker %in% "0"],
                    group = smoker,
                    color = smoker,
                    fill = smoker,
-                   text =paste(paste0(smoker," - ", BrthYear),
+                   text =paste(smoker,
+                               "<br>Year:", BrthYear,
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                "<br>Smoking (%):" , scales::percent(rate, accuracy = .1)
                                )
@@ -790,7 +799,8 @@ reactable(tbl,
           onClick = "expand",
           highlight = TRUE, 
           compact = TRUE,
-          defaultColDef = colDef(align = "right", 
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
                                  format = colFormat(locales = "en-CA", separators = TRUE),
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
@@ -859,7 +869,8 @@ plot <- ggplot(data = dta1,
                    color= change,
                    shape = change,
                    fill = change,
-                   text =paste(paste0(change," - ", BrthYear),
+                   text =paste(change,
+                               "<br>Year:", BrthYear,
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",change, " (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -958,7 +969,8 @@ reactable(tbl,
           onClick = "expand",
           highlight = TRUE, 
           compact = TRUE,
-          defaultColDef = colDef(align = "right", 
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
                                  format = colFormat(locales = "en-CA", separators = TRUE),
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
@@ -1067,7 +1079,8 @@ reactable(tbl,
           onClick = "expand",
           highlight = TRUE, 
           compact = TRUE,
-          defaultColDef = colDef(align = "right", 
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
                                  format = colFormat(locales = "en-CA", separators = TRUE),
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
@@ -1121,7 +1134,8 @@ plot <- ggplot(data = dta1[!marij %in% "No"],
                    color= marij,
                    #shape = marij,
                    fill = marij,
-                   text =paste(paste0(marij," - ", BrthYear),
+                   text =paste(marij,
+                               "<br>Year:", BrthYear,
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                "<br>Reported cannabis (%):" , scales::percent(rate, accuracy = .1)
                                )
@@ -1203,7 +1217,8 @@ reactable(tbl,
           onClick = "expand",
           highlight = TRUE, 
           compact = TRUE,
-          defaultColDef = colDef(align = "right", 
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
                                  format = colFormat(locales = "en-CA", separators = TRUE),
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
@@ -1278,7 +1293,8 @@ plot <- ggplot(data = dta1[!oat %in% "No"],
                    color= oat,
                    #shape = oat,
                    fill = oat,
-                   text =paste(paste0(oat, " - ", BrthYear),
+                   text =paste(oat,
+                               "<br>Year:", BrthYear,
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                "<br>Opioid agonist (%):" , scales::percent(rate, accuracy = .01)
                                )
@@ -1304,7 +1320,7 @@ plot <- ggplot(data = dta1[!oat %in% "No"],
     breaks = pretty) +
   scale_y_continuous(#trans = 'log2',
     breaks = pretty,
-    labels = scales::percent_format(accuracy = .01),
+    labels = scales::percent_format(accuracy = .1),
     limits = c(0, NA)) +
   labs(y = 'Proportion of deliveries', x = '') +
   theme_classic()
@@ -1366,7 +1382,8 @@ reactable(tbl,
           onClick = "expand",
           highlight = TRUE, 
           compact = TRUE,
-          defaultColDef = colDef(align = "right", 
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
                                  format = colFormat(locales = "en-CA", separators = TRUE),
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
@@ -1444,7 +1461,8 @@ plot <- ggplot(data = dta1,
                    color= bmipp,
                    shape = bmipp,
                    fill = bmipp,
-                   text =paste(paste0(bmipp," - ",BrthYear),
+                   text =paste(bmipp,
+                               "<br>Year:", BrthYear,
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",bmipp," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -1529,7 +1547,8 @@ reactable(tbl,
           onClick = "expand",
           highlight = TRUE, 
           compact = TRUE,
-          defaultColDef = colDef(align = "right", 
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
                                  format = colFormat(locales = "en-CA", separators = TRUE),
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
@@ -1552,7 +1571,7 @@ reactable(tbl,
                             font_size = 12,
                             #font_weight = "bold"
   ) %>%
-  reactablefmtr::add_source("Note: Body mass index (BMI) is calculated as weight in kilograms divided by the square of height in metres: Underweight, < 18.5 kg/m\u00b2 ; Normal weight, 18.5 to 24.9 kg/m\u00b2 ; Overweight, 25 to 29.9 kg/m\u00b2 ; Obese, \u226530 kg/m\u00b2.",
+  reactablefmtr::add_source("Note: Body mass index (BMI) is calculated as weight in kilograms divided by the square of height in metres: Underweight, < 18.5 kg/m\u00b2; Normal weight, 18.5 to 24.9 kg/m\u00b2; Overweight, 25 to 29.9 kg/m\u00b2; Obese, \u2265 30 kg/m\u00b2.",
                             font_size = 12,
                             #font_weight = "bold"
   )
@@ -1612,8 +1631,9 @@ plot <- ggplot(data = dta1,
                    color= bmipp,
                    shape = bmipp,
                    fill = bmipp,
-                   text =paste(paste0(bmipp, " - ", BrthYear),
-                               "<br>Total delvieries:", scales::comma(total, accuracy = 1),
+                   text =paste(bmipp,
+                               "<br>Year:", BrthYear,
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",bmipp," (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
@@ -1700,7 +1720,8 @@ reactable(tbl,
           onClick = "expand",
           highlight = TRUE, 
           compact = TRUE,
-          defaultColDef = colDef(align = "right", 
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
                                  format = colFormat(locales = "en-CA", separators = TRUE),
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
@@ -1798,7 +1819,8 @@ plot <- ggplot(data = dta1,
                    color= iom,
                    shape = iom,
                    fill = iom,
-                   text =paste(paste0(iom," - ", BrthYear),
+                   text =paste(iom,
+                               "<br>Year:", BrthYear,
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>", iom, " (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -1906,7 +1928,8 @@ reactable(tbl,
           onClick = "expand",
           highlight = TRUE, 
           compact = TRUE,
-          defaultColDef = colDef(align = "right", 
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
                                  format = colFormat(locales = "en-CA", separators = TRUE),
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
@@ -2022,7 +2045,8 @@ plot <- ggplot(data = dta1,
                    color= iom,
                    shape = iom,
                    fill = iom,
-                   text =paste(paste0(iom," - ", BrthYear),
+                   text =paste(iom,
+                               "<br>Year:", BrthYear,
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",iom," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -2051,10 +2075,10 @@ plot <- ggplot(data = dta1,
     labels = scales::percent_format(accuracy = 1),
     limits = c(0, NA)) +
   labs(y = 'Proportion of deliveries', x = '') +
-  facet_wrap(~bmipp, ncol = 2,
-             scales = "free") +
+  facet_wrap(~bmipp, ncol = 2) +
   theme_classic() +
-  theme(panel.spacing.y = unit(2,"lines"),
+  theme(panel.spacing.y = unit(3,"lines"),
+        panel.spacing.x = unit(2,"lines"),
         panel.background = element_blank(), 
             panel.border = element_blank(), strip.background = element_blank(), 
             plot.background = element_blank())
@@ -2135,7 +2159,7 @@ tbl1 <- tbl %>%
 
 tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 #names(tbl1) <- coln
-tbl1[,1] <- c("BMI < 18.5", c("Inadequate (gain < 12.5 kg)", "Adequate (12.5 kg \u2264 gain \u2265 18 kg)", "Excessive (gain > 18 kg)"))
+tbl1[,1] <- c("Total deliveries", c("Inadequate (gain < 12.5 kg)", "Adequate (12.5 kg \u2264 gain \u2264 18 kg)", "Excessive (gain > 18 kg)"))
 
 # add comma separator to total count
 tbl1[1,-1] <- as.character(sapply(as.numeric(tbl1[1,-1]), scales::comma_format(accuracy = 1)))
@@ -2160,7 +2184,7 @@ tbl2 <- tbl %>%
 
 tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 #names(tbl2) <- coln
-tbl2[,1] <- c("18.5 \u2264 BMI < 25", c("Inadequate (gain < 11.5 kg)", "Adequate (11.5 kg \u2264 gain \u2265 16 kg)", "Excessive (gain > 16 kg)"))
+tbl2[,1] <- c("Total deliveries", c("Inadequate (gain < 11.5 kg)", "Adequate (11.5 kg \u2264 gain \u2264 16 kg)", "Excessive (gain > 16 kg)"))
 
 # add comma separator to total count
 tbl2[1,-1] <- as.character(sapply(as.numeric(tbl2[1,-1]), scales::comma_format(accuracy = 1)))
@@ -2185,7 +2209,7 @@ tbl3 <- tbl %>%
 
 tbl3 <- as.data.frame(sapply(tbl3, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 #names(tbl3) <- coln
-tbl3[,1] <- c("25 \u2264 BMI < 30", c("Inadequate (gain < 7 kg)", "Adequate (7 kg \u2264 gain \u2265 11.5 kg)", "Excessive (gain > 11.5 kg)"))
+tbl3[,1] <- c("Total deliveries", c("Inadequate (gain < 7 kg)", "Adequate (7 kg \u2264 gain \u2264 11.5 kg)", "Excessive (gain > 11.5 kg)"))
 
 # add comma separator to total count
 tbl3[1,-1] <- as.character(sapply(as.numeric(tbl3[1,-1]), scales::comma_format(accuracy = 1)))
@@ -2210,7 +2234,7 @@ tbl4 <- tbl %>%
 
 tbl4 <- as.data.frame(sapply(tbl4, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 #names(tbl4) <- coln
-tbl4[,1] <- c("BMI \u2265 30", c("Inadequate (gain < 5 kg)", "Adequate (5 kg \u2264 gain \u2265 9 kg)", "Excessive (gain > 9 kg)"))
+tbl4[,1] <- c("Total deliveries", c("Inadequate (gain < 5 kg)", "Adequate (5 kg \u2264 gain \u2264 9 kg)", "Excessive (gain > 9 kg)"))
 
 # add comma separator to total count
 tbl4[1,-1] <- as.character(sapply(as.numeric(tbl4[1,-1]), scales::comma_format(accuracy = 1)))
@@ -2228,7 +2252,9 @@ reactable(tbl,
           onClick = "expand",
           highlight = TRUE, 
           compact = TRUE,
-          defaultColDef = colDef(align = "right", 
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
                                  format = colFormat(locales = "en-CA", separators = TRUE),
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
@@ -2242,7 +2268,7 @@ reactable(tbl,
                                          borderBottom = "#dddddd")
           },
           columns = list(
-            infmort = colDef(name = "",
+            iom = colDef(name = "",
                              align = "left",
                              width = 180)
           )
@@ -2321,9 +2347,9 @@ reactable(tbl,
           onClick = "expand",
           highlight = TRUE, 
           compact = TRUE,
-          style = list(borderBottom = "#dddddd",
-                       headerStyle = list(borderColor = "#dddddd")),
-          defaultColDef = colDef(align = "right", 
+          defaultPageSize = 20,
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
                                  format = colFormat(locales = "en-CA", separators = TRUE),
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
@@ -2336,7 +2362,7 @@ reactable(tbl,
           #                                borderBottom = "#dddddd")
           # },
           columns = list(
-            infmort = colDef(name = "",
+            variable = colDef(name = "",
                          align = "left",
                          width = 180)
           )
@@ -2358,7 +2384,7 @@ reactable(tbl,
 ```{r plot315, fig.cap= paste('Interpregnancy weight change by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 temp <- readr::read_csv("data/NSAtleePD.csv") %>%
-  setDT() 
+  setDT()
 
 dta1 <- temp[, .(BrthYear,
                 MOTHERID,
@@ -2429,8 +2455,8 @@ plot <- ggplot(data = dta1,
                    fill = ipwc_cat,
                    text =paste(ipwc_cat,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>Proportion of deliveries:" , scales::percent(rate, accuracy = .1)
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               paste0("<br>",ipwc_cat," (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
                ) +
@@ -2447,7 +2473,7 @@ plot <- ggplot(data = dta1,
                     values = pal,
                     limits = names(pal)) +
   scale_shape_manual(name = "",
-                     values = c(15, 16, 17, 18)) +
+                     values = c(21, 22, 23, 24)) +
   # scale_x_date(date_breaks = "2 years",
   #              date_labels = "%Y") +
   scale_x_continuous(#trans = 'log2',
@@ -2530,26 +2556,63 @@ tbl <- temp[, .(BrthYear,
 
 rm(list = c("temp"))
   
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%","%1.1f%%")))
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# deliveries", "Loss > 1 kg", "Within 1 kg", "1 kg < Gain < 5 kg", "Gain \u2265 5 kg")
+tbl[,1] <- c("Total deliveries", "Loss > 1 kg", "Within 1 kg", "1 kg < Gain < 5 kg", "Gain \u2265 5 kg")
 
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-#kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                          bootstrap_options = c("hover","condensed", "responsive")) %>%
-kableExtra::add_footnote(label = c("With known pre-pregnancy weight in index and preceding pregnancies.",
-                                   "Note: Interpregnancy weight change is calculated as the pre-pregnancy weight in the index pregnancy minus the pre-pregnancy weight in the woman's preceding pregnancy."))
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            ipwc_cat = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("\u1d43 With known pre-pregnancy weight in index and preceding pregnancies.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source("Note: Interpregnancy weight change is calculated as the pre-pregnancy weight in the index pregnancy minus the pre-pregnancy weight in the woman's preceding pregnancy.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+# #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                           bootstrap_options = c("hover","condensed", "responsive")) %>%
+# kableExtra::add_footnote(label = c("With known pre-pregnancy weight in index and preceding pregnancies.",
+#                                    "Note: Interpregnancy weight change is calculated as the pre-pregnancy weight in the index pregnancy minus the pre-pregnancy weight in the woman's preceding pregnancy."))
 ```
 
 ## Pre-existing diabetes by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-316}
@@ -2642,8 +2705,8 @@ plot <- ggplot(data = dta1[!prexdiab %in% "No"],
                    fill = prexdiab,
                    text =paste(prexdiab,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>Proportion of deliveries:" , scales::percent(rate, accuracy = .1)
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               paste0("<br>",prexdiab," (%):") , scales::percent(rate, accuracy = .01)
                                )
                    )
                ) +
@@ -2667,7 +2730,7 @@ plot <- ggplot(data = dta1[!prexdiab %in% "No"],
     breaks = pretty) +
   scale_y_continuous(#trans = 'log2',
     breaks = pretty,
-    labels = scales::percent_format(accuracy = 1),
+    labels = scales::percent_format(accuracy = .1),
     limits = c(0, NA)) +
   labs(y = 'Proportion of deliveries', x = '') +
   theme_classic()
@@ -2765,25 +2828,58 @@ tbl <- dta[, .(BrthYear,
   dcast(prexdiab ~ BrthYear, value.var = "value")
 
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# deliveries", "Pre-existing diabetes")
+tbl[,1] <- c("Total deliveries", "Pre-existing diabetes")
 
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-#kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                          bootstrap_options = c("hover","condensed", "responsive")) %>%
-kableExtra::add_footnote(label = c("Note: Maternal history of either Type 1 or Type 2 diabetes mellitus prior to the current pregnancy."))
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            prexdiab = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("Note: Maternal history of either Type 1 or Type 2 diabetes mellitus prior to the current pregnancy.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+# #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                           bootstrap_options = c("hover","condensed", "responsive")) %>%
+# kableExtra::add_footnote(label = c("Note: Maternal history of either Type 1 or Type 2 diabetes mellitus prior to the current pregnancy."))
 ```
 
 ##  Pre-existing hypertension by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-317}
@@ -2830,7 +2926,7 @@ plot <- ggplot(data = dta1[!prehtn %in% "No"],
                    text =paste(prehtn,
                                "<br>Year:", BrthYear,
                                "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>Proportion of deliveries:" , scales::percent(rate, accuracy = .1)
+                               paste0("<br>",prehtn," (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
                ) +
@@ -2854,7 +2950,7 @@ plot <- ggplot(data = dta1[!prehtn %in% "No"],
     breaks = pretty) +
   scale_y_continuous(#trans = 'log2',
     breaks = pretty,
-    labels = scales::percent_format(accuracy = 1),
+    labels = scales::percent_format(accuracy = .1),
     limits = c(0, NA)) +
   labs(y = 'Proportion of deliveries', x = '') +
   theme_classic()
@@ -2904,25 +3000,58 @@ tbl <- dta[, .(BrthYear,
   dcast(prehtn ~ BrthYear, value.var = "value")
 
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# deliveries", "Pre-existing hypertension")
+tbl[,1] <- c("Total deliveries", "Pre-existing hypertension")
 
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-#kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                          bootstrap_options = c("hover","condensed", "responsive")) %>%
-kableExtra::add_footnote(label = c("Note; Maternal history of hypertensive disease prior to the current pregnancy or prior to 20 weeks gestation in the current pregnancy."))
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            prehtn = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("Note: Maternal history of hypertensive disease prior to the current pregnancy or prior to 20 weeks gestation in the current pregnancy.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+# #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                           bootstrap_options = c("hover","condensed", "responsive")) %>%
+# kableExtra::add_footnote(label = c("Note: Maternal history of hypertensive disease prior to the current pregnancy or prior to 20 weeks gestation in the current pregnancy."))
 ```
 
 ##  Number of pre-pregnancy risk factors by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-318}
@@ -3054,7 +3183,7 @@ plot <- ggplot(data = dta1,
                    text =paste(pprf,
                                "<br>Year:", BrthYear,
                                "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>Proportion of deliveries:" , scales::percent(rate, accuracy = .1)
+                               paste0("<br>",pprf," (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
                ) +
@@ -3071,7 +3200,7 @@ plot <- ggplot(data = dta1,
                     values = pal,
                     limits = names(pal)) +
   scale_shape_manual(name = "",
-                     values = c(15, 16, 17, 18)) +
+                     values = c(21, 22, 23, 24)) +
   # scale_x_date(date_breaks = "2 years",
   #              date_labels = "%Y") +
   scale_x_continuous(#trans = 'log2',
@@ -3208,26 +3337,64 @@ tbl <- dta[, .(BrthYear,
   dcast(pprf ~ BrthYear, value.var = "value")
 
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# deliveries", "None", "1", "2", "\u2265 3")
+tbl[,1] <- c("Total deliveries", "None", "1", "2", "\u2265 3")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            pprf = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("\u1d43 With known risk factor status.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source("Note: Pre-pregnancy risk factors included maternal age \u2265 35 years, BMI \u2265 30 kg/m\u00b2 , smoking, pre-existing diabetes, and pre-existing hypertension.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
 
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-#kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                          bootstrap_options = c("hover","condensed", "responsive")) %>%
-kableExtra::add_footnote(label = c(" With known risk factor status.",
-                                   "Note: Pre-pregnancy risk factors included maternal age $\\\\ge 35$ years, BMI $\\\\ge 30$ $kg/m^2$ , smoking, pre-existing diabetes, and pre-existing hypertension."), escape = FALSE)
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+# #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                           bootstrap_options = c("hover","condensed", "responsive")) %>%
+# kableExtra::add_footnote(label = c("With known risk factor status.",
+#                                    "Note: Pre-pregnancy risk factors included maternal age $\\\\ge 35$ years, BMI $\\\\ge 30$ $kg/m^2$ , smoking, pre-existing diabetes, and pre-existing hypertension."), escape = FALSE)
 ```
 
 ## Use of medication for depression or anxiety during pregnancy by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-319}
@@ -3267,7 +3434,7 @@ plot <- ggplot(data = dta1[!depanx %in% "No"],
                    text =paste(depanx,
                                "<br>Year:", BrthYear,
                                "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>Proportion of deliveries:" , scales::percent(rate, accuracy = .1)
+                               paste0("<br>",depanx," (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
                ) +
@@ -3325,7 +3492,8 @@ tbl <- dta[, .(BrthYear,
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = 100*count/total)] %>%
   melt(measure.vars = c("rate", "total", "count")) %>%
-  .[!tolower(variable) %in% "count"] %>%
+  .[!tolower(variable) %in% "count" &
+    !depanx %in% 0] %>%
   .[, `:=` (depanx = fifelse(tolower(variable) %in% "total",
                                0, depanx))] %>%
   .[, .(BrthYear, depanx, value)] %>%
@@ -3333,25 +3501,59 @@ tbl <- dta[, .(BrthYear,
   dcast(depanx ~ BrthYear, value.var = "value")
 
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# deliveries", "Medication use")
+tbl[,1] <- c("Total deliveries", "Medication use")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            depanx = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("Note: If recorded on the Nova Scotia Prenatal Record.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
 
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-#kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                          bootstrap_options = c("hover","condensed", "responsive")) %>%
-kableExtra::add_footnote(label = c("Note: If recorded on the Nova Scotia Prenatal Record"), escape = FALSE)
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+# #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                           bootstrap_options = c("hover","condensed", "responsive")) %>%
+# kableExtra::add_footnote(label = c("Note: If recorded on the Nova Scotia Prenatal Record"), escape = FALSE)
 ```
 
 ## Breastfeeding status during hospital stay by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-320}
@@ -3399,7 +3601,7 @@ plot <- ggplot(data = dta1,
                    text =paste(bf,
                                "<br>Year:", BrthYear,
                                "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>Proportion of deliveries:" , scales::percent(rate, accuracy = .1)
+                               paste0("<br>",bf," (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
                ) +
@@ -3416,7 +3618,7 @@ plot <- ggplot(data = dta1,
                     values = pal,
                     limits = names(pal)) +
   scale_shape_manual(name = "",
-                     values = c(15, 16, 17)) +
+                     values = c(21, 22, 23)) +
   # scale_x_date(date_breaks = "2 years",
   #              date_labels = "%Y") +
   scale_x_continuous(#trans = 'log2',
@@ -3471,24 +3673,60 @@ tbl <- dta[, .(BrthYear,
   dcast(bf ~ BrthYear, value.var = "value")
 
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# live births", "Exclusive", "Non-exclusive")
+tbl[,1] <- c("Total live births", "Exclusive", "Non-exclusive")
 
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-#kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                          bootstrap_options = c("hover","condensed", "responsive")) %>%
-kableExtra::add_footnote(label = c("With known breastfeeding status.",
-                                   "Note: Describes the method of infant feeding during the hospital stay. Breastfeeding refers to when the infant was given breast milk: Exclusive denotes that the infant received only breast milk and non-exclusive denotes that the infant received breast milk with supplementation"))
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            bf = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("\u1d43 With known breastfeeding status.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source("Note: Describes the method of infant feeding during the hospital stay. Breastfeeding refers to when the infant was given breast milk: Exclusive denotes that the infant received only breast milk and non-exclusive denotes that the infant received breast milk with supplementation.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+# #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                           bootstrap_options = c("hover","condensed", "responsive")) %>%
+# kableExtra::add_footnote(label = c("With known breastfeeding status.",
+#                                    "Note: Describes the method of infant feeding during the hospital stay. Breastfeeding refers to when the infant was given breast milk: Exclusive denotes that the infant received only breast milk and non-exclusive denotes that the infant received breast milk with supplementation"))
 ```

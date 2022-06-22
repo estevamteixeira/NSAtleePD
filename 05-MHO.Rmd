@@ -128,8 +128,8 @@ plot <- ggplot(data = dta1[!gestdiab %in% c("No")],
                    #shape = gestdiab,
                    text =paste(gestdiab,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               paste0("<br>",gestdiab, " (%):") , scales::percent(rate, accuracy = .1)
                    )
                )
 ) +
@@ -142,8 +142,8 @@ plot <- ggplot(data = dta1[!gestdiab %in% c("No")],
   scale_fill_manual(name = "",
                     values = pal,
                     limits = names(pal)) +
-  scale_shape_manual(name = "",
-                     values = c(15, 16, 17)) +
+  # scale_shape_manual(name = "",
+  #                    values = c(21, 22, 23)) +
   # scale_x_date(date_breaks = "2 years",
   #              date_labels = "%Y") +
   scale_x_continuous(#trans = 'log2',
@@ -152,8 +152,8 @@ plot <- ggplot(data = dta1[!gestdiab %in% c("No")],
     breaks = pretty,
     labels = scales::percent_format(accuracy = 1),
     limits = c(0, NA)) +
-  labs(y = '% of deliveries', x = '') +
-  theme_minimal()
+  labs(y = 'Proportion of deliveries', x = '') +
+  theme_classic()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
@@ -247,25 +247,64 @@ tbl <- dta[, .(BrthYear,
   unique() %>%
   dcast(gestdiab ~ BrthYear, value.var = "value")
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# deliveries", "Gestational diabetes")
+tbl[,1] <- c("Total deliveries\u1d43", "Gestational diabetes (%)")
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                            bootstrap_options = c("hover","condensed", "responsive")) %>%
-  kableExtra::add_footnote(label = c("Among women without pre-existing diabetes.",
-                                     "Note: Diabetes mellitus first detected in pregnancy as recorded in the medical record. Please note that the criteria for the diagnosis of gestational diabetes were revised by Diabetes Canada (formerly the Canadian Diabetes Association) in 2013. Therefore, the rates of gestational diabetes were expected to increase as the new criteria are adopted across Nova Scotia, starting approximately in late 2014."))
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            gestdiab = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("\u1d43 Among women without pre-existing diabetes.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source("Note: Diabetes mellitus first detected in pregnancy as recorded in the medical record. Please note that the criteria for the diagnosis of gestational diabetes were revised by Diabetes Canada (formerly the Canadian Diabetes Association) in 2013. Therefore, the rates of gestational diabetes were expected to increase as the new criteria are adopted across Nova Scotia, starting approximately in late 2014.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+#   #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                             bootstrap_options = c("hover","condensed", "responsive")) %>%
+#   kableExtra::add_footnote(label = c("Among women without pre-existing diabetes.",
+#                                      "Note: Diabetes mellitus first detected in pregnancy as recorded in the medical record. Please note that the criteria for the diagnosis of gestational diabetes were revised by Diabetes Canada (formerly the Canadian Diabetes Association) in 2013. Therefore, the rates of gestational diabetes were expected to increase as the new criteria are adopted across Nova Scotia, starting approximately in late 2014."))
 ```
 
 ## Gestational hypertension by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-52}
@@ -348,8 +387,8 @@ plot <- ggplot(data = dta1,
                    shape = ghcat,
                    text =paste(ghcat,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               paste0("<br>",ghcat, " (%):") , scales::percent(rate, accuracy = .1)
                    )
                )
 ) +
@@ -363,7 +402,7 @@ plot <- ggplot(data = dta1,
                     values = pal,
                     limits = names(pal)) +
   scale_shape_manual(name = "",
-                     values = c(15, 16, 17)) +
+                     values = c(21, 22, 23)) +
   # scale_x_date(date_breaks = "2 years",
   #              date_labels = "%Y") +
   scale_x_continuous(#trans = 'log2',
@@ -372,8 +411,8 @@ plot <- ggplot(data = dta1,
     breaks = pretty,
     labels = scales::percent_format(accuracy = 1),
     limits = c(0, NA)) +
-  labs(y = '% of deliveries', x = '') +
-  theme_minimal()
+  labs(y = 'Proportion of deliveries', x = '') +
+  theme_classic()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
@@ -455,26 +494,65 @@ tbl <- unique(rbind(tbl, temp)) %>%
   unique() %>%
   dcast(ghcat ~ BrthYear, value.var = "value")
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# deliveries", "GH-no sig proteinuria", "GH-sig proteinuria", "GH-total")
+tbl[,1] <- c("Total deliveries\u1d43", "GH-no sig proteinuria", "GH-sig proteinuria", "GH-total")
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                            bootstrap_options = c("hover","condensed", "responsive")) %>%
-  kableExtra::add_footnote(label = c("Among women without pre-existing hypertension.",
-                                     "Note: Gestational hypertension is hypertension that is first detected after the 20th week of gestation. Gestational hypertension with significant proteinuria includes those cases denoted as such; severe pre-eclampsia; HELLP syndrome (Hemolysis, Elevated Liver Enzymes, Low Platelets); and eclampsia."))
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          rowStyle = function(index){
+            if (index == nrow(tbl)) list(color = "black",
+                                         backgroundColor = "#e1e1e1",
+                                         fontWeight = "bold",
+                                         align = "center",
+                                         borderBottom = "#dddddd")
+          },
+          columns = list(
+            ghcat = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("\u1d43 Among women without pre-existing hypertension.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source("Note: Gestational hypertension is hypertension that is first detected after the 20th week of gestation. Gestational hypertension with significant proteinuria includes those cases denoted as such; severe pre-eclampsia; HELLP syndrome (Hemolysis, Elevated Liver Enzymes, Low Platelets); and eclampsia.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+#   #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                             bootstrap_options = c("hover","condensed", "responsive")) %>%
+#   kableExtra::add_footnote(label = c("Among women without pre-existing hypertension.",
+#                                      "Note: Gestational hypertension is hypertension that is first detected after the 20th week of gestation. Gestational hypertension with significant proteinuria includes those cases denoted as such; severe pre-eclampsia; HELLP syndrome (Hemolysis, Elevated Liver Enzymes, Low Platelets); and eclampsia."))
 ```
 
 ## Pre-eclampsia by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-53}
@@ -581,8 +659,8 @@ plot <- ggplot(data = dta1[!tolower(preeclamp) %in% "no"],
                    #shape = preeclamp,
                    text =paste(preeclamp,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               paste0("<br>",preeclamp," (%):") , scales::percent(rate, accuracy = .1)
                    )
                )
 ) +
@@ -605,8 +683,8 @@ plot <- ggplot(data = dta1[!tolower(preeclamp) %in% "no"],
     breaks = pretty,
     labels = scales::percent_format(accuracy = 1),
     limits = c(0, NA)) +
-  labs(y = '% of deliveries', x = '') +
-  theme_minimal()
+  labs(y = 'Proportion of deliveries', x = '') +
+  theme_classic()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
@@ -713,25 +791,60 @@ tbl <- dta[, .(BrthYear,
   unique() %>%
   dcast(preeclamp ~ BrthYear, value.var = "value")
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
 
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# deliveries", "Pre-eclampsia")
+tbl[,1] <- c("Total deliveries", "Pre-eclampsia (%)")
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                            bootstrap_options = c("hover","condensed", "responsive")) %>%
-  kableExtra::add_footnote(label = c("Note: Pre-eclampsia includes women coded as having gestational hypertension with significant proteinuria, moderate or severe pre-eclampsia, HELLP syndrome (Hemolysis, Elevated Liver Enzymes, Low Platelets), eclampsia, or pre-existing hypertension with superimposed proteinuria."))
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            preeclamp = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("Note: Pre-eclampsia includes women coded as having gestational hypertension with significant proteinuria, moderate or severe pre-eclampsia, HELLP syndrome (Hemolysis, Elevated Liver Enzymes, Low Platelets), eclampsia, or pre-existing hypertension with superimposed proteinuria.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+#   #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                             bootstrap_options = c("hover","condensed", "responsive")) %>%
+#   kableExtra::add_footnote(label = c("Note: Pre-eclampsia includes women coded as having gestational hypertension with significant proteinuria, moderate or severe pre-eclampsia, HELLP syndrome (Hemolysis, Elevated Liver Enzymes, Low Platelets), eclampsia, or pre-existing hypertension with superimposed proteinuria."))
 ```
 
 ## Placenta previa by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-54}
@@ -771,8 +884,8 @@ plot <- ggplot(data = dta1[!tolower(plaprev) %in% "no"],
                    #shape = plaprev,
                    text =paste(plaprev,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               paste0("<br>",plaprev," (%):") , scales::percent(rate, accuracy = .01)
                    )
                )
 ) +
@@ -795,8 +908,8 @@ plot <- ggplot(data = dta1[!tolower(plaprev) %in% "no"],
     breaks = pretty,
     labels = scales::percent_format(accuracy = .1),
     limits = c(0, NA)) +
-  labs(y = '% of deliveries', x = '') +
-  theme_minimal()
+  labs(y = 'Proportion of deliveries', x = '') +
+  theme_classic()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
@@ -836,25 +949,60 @@ tbl <- dta[, .(BrthYear,
   unique() %>%
   dcast(plaprev ~ BrthYear, value.var = "value")
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
-tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.2f%%")))
 
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# deliveries", "Placenta previa")
+tbl[,1] <- c("Total deliveries", "Placenta previa (%)")
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                            bootstrap_options = c("hover","condensed", "responsive")) %>%
-  kableExtra::add_footnote(label = c("Note: Placenta previa is diagnosed when the placenta entirely or partially covers the opening of the uterus (cervix). The diagnosis is not made on ultrasound alone and must be confirmed clinically"))
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            plaprev = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("Note: Placenta previa is diagnosed when the placenta entirely or partially covers the opening of the uterus (cervix). The diagnosis is not made on ultrasound alone and must be confirmed clinically.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+#   #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                             bootstrap_options = c("hover","condensed", "responsive")) %>%
+#   kableExtra::add_footnote(label = c("Note: Placenta previa is diagnosed when the placenta entirely or partially covers the opening of the uterus (cervix). The diagnosis is not made on ultrasound alone and must be confirmed clinically."))
 ```
 
 ## Placental abruption by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-55}
@@ -894,8 +1042,8 @@ plot <- ggplot(data = dta1[!tolower(plaabrp) %in% "no"],
                    #shape = plaabrp,
                    text =paste(plaabrp,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               paste0("<br>"," (%):") , scales::percent(rate, accuracy = .01)
                    )
                )
 ) +
@@ -918,8 +1066,8 @@ plot <- ggplot(data = dta1[!tolower(plaabrp) %in% "no"],
     breaks = pretty,
     labels = scales::percent_format(accuracy = .1),
     limits = c(0, NA)) +
-  labs(y = '% of deliveries', x = '') +
-  theme_minimal()
+  labs(y = 'Proportion of deliveries', x = '') +
+  theme_classic()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
@@ -959,25 +1107,60 @@ tbl <- dta[, .(BrthYear,
   unique() %>%
   dcast(plaabrp ~ BrthYear, value.var = "value")
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
-tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.2f%%")))
 
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# deliveries", "Placenta previa")
+tbl[,1] <- c("Total deliveries", "Placenta abruption (%)")
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                            bootstrap_options = c("hover","condensed", "responsive")) %>%
-  kableExtra::add_footnote(label = c("Note: Placenta previa is diagnosed when the placenta entirely or partially covers the opening of the uterus (cervix). The diagnosis is not made on ultrasound alone and must be confirmed clinically"))
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            plaabrp = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("Note: Placental abruption is defined as bleeding from the placental site due to the partial or complete separation of the placenta. The diagnosis is not made on ultrasound alone and must be confirmed clinically.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+#   #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                             bootstrap_options = c("hover","condensed", "responsive")) %>%
+#   kableExtra::add_footnote(label = c("Placental abruption is defined as bleeding from the placental site due to the partial or complete separation of the placenta. The diagnosis is not made on ultrasound alone and must be confirmed clinically."))
 ```
 
 ## Perineal laceration among primiparous vaginal deliveries by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-56}
@@ -1032,8 +1215,8 @@ plot <- ggplot(data = dta1[!tolower(lacer) %in% "no"],
                    shape = lacer,
                    text =paste(lacer,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               paste0("<br>",lacer," (%):") , scales::percent(rate, accuracy = .1)
                    )
                )
 ) +
@@ -1047,7 +1230,7 @@ plot <- ggplot(data = dta1[!tolower(lacer) %in% "no"],
                     values = pal,
                     limits = names(pal)) +
   scale_shape_manual(name = "",
-                     values = c(15, 16)) +
+                     values = c(21, 22)) +
   # scale_x_date(date_breaks = "2 years",
   #              date_labels = "%Y") +
   scale_x_continuous(#trans = 'log2',
@@ -1056,8 +1239,8 @@ plot <- ggplot(data = dta1[!tolower(lacer) %in% "no"],
     breaks = pretty,
     labels = scales::percent_format(accuracy = .1),
     limits = c(0, NA)) +
-  labs(y = '% of primiparous vaginal deliveries', x = '') +
-  theme_minimal()
+  labs(y = 'Proportion of primiparous vaginal deliveries', x = '') +
+  theme_classic()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
@@ -1110,25 +1293,64 @@ tbl <- dta[, .(BrthYear,
   unique() %>%
   dcast(lacer ~ BrthYear, value.var = "value")
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
 
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# primiparous vaginal deliveries", "2\u207f\u1d48 degree laceration", "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration")
+tbl[,1] <- c("Total primiparous vaginal deliveries", "2\u207f\u1d48 degree laceration", "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration")
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                            bootstrap_options = c("hover","condensed", "responsive")) %>%
-  kableExtra::add_footnote(label = c("Note: Maternal perineal laceration, rupture or tear during delivery involving the pelvic floor, perineal muscles, or vaginal muscles (2$^{nd}$ degree), anal sphincter (3$^{rd}$ degree), or rectal mucosa (4$^{th}$ degree)."), escape = FALSE)
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            lacer = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("\u1d43 With known partner status.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source("Note: Maternal perineal laceration, rupture or tear during delivery involving the pelvic floor, perineal muscles, or vaginal muscles (2\u207f\u1d48 degree), anal sphincter (3\u02b3\u1d48 degree), or rectal mucosa (4\u1d57\u02b0 degree).",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+#   #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                             bootstrap_options = c("hover","condensed", "responsive")) %>%
+#   kableExtra::add_footnote(label = c("Note: Maternal perineal laceration, rupture or tear during delivery involving the pelvic floor, perineal muscles, or vaginal muscles (2$^{nd}$ degree), anal sphincter (3$^{rd}$ degree), or rectal mucosa (4$^{th}$ degree)."), escape = FALSE)
 ```
 
 ## Perineal laceration among multiparous vaginal deliveries by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-57}
@@ -1161,18 +1383,17 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (rate = count/total)] %>%
   unique()
 
-
 dta1 <- dta1[, `:=` (lacer = factor(lacer,
                                    levels = c(0,1,2),
                                    labels = c("No",
                                               "2\u207f\u1d48 degree laceration",
-                                              "3\u1d63\u1d48 or 4\u1d57\u1d78 degree laceration")))]
+                                              "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration")))]
 
 ## getting color for plotting
 
 pal <- c("No" = "#1b9e77",
          "2\u207f\u1d48 degree laceration" = "#d95f02",
-         "3\u1d63\u1d48 or 4\u1d57\u1d78 degree laceration" = "#7570b3")
+         "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration" = "#7570b3")
 
 plot <- ggplot(data = dta1[!tolower(lacer) %in% "no"],
                aes(x = BrthYear,
@@ -1183,8 +1404,8 @@ plot <- ggplot(data = dta1[!tolower(lacer) %in% "no"],
                    shape = lacer,
                    text =paste(lacer,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               paste0("<br>",lacer," (%):") , scales::percent(rate, accuracy = .1)
                    )
                )
 ) +
@@ -1198,7 +1419,7 @@ plot <- ggplot(data = dta1[!tolower(lacer) %in% "no"],
                     values = pal,
                     limits = names(pal)) +
   scale_shape_manual(name = "",
-                     values = c(15, 16)) +
+                     values = c(21, 22)) +
   # scale_x_date(date_breaks = "2 years",
   #              date_labels = "%Y") +
   scale_x_continuous(#trans = 'log2',
@@ -1207,8 +1428,8 @@ plot <- ggplot(data = dta1[!tolower(lacer) %in% "no"],
     breaks = pretty,
     labels = scales::percent_format(accuracy = .1),
     limits = c(0, NA)) +
-  labs(y = '% of multiparous vaginal deliveries', x = '') +
-  theme_minimal()
+  labs(y = 'Proportion of multiparous vaginal deliveries', x = '') +
+  theme_classic()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
@@ -1261,25 +1482,60 @@ tbl <- dta[, .(BrthYear,
   unique() %>%
   dcast(lacer ~ BrthYear, value.var = "value")
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
 
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# multiparous vaginal deliveries", "2\u207f\u1d48 degree laceration", "3\u1d63\u1d48 or 4\u1d57\u1d78 degree laceration")
+tbl[,1] <- c("Total multiparous vaginal deliveries", "2\u207f\u1d48 degree laceration", "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration")
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                            bootstrap_options = c("hover","condensed", "responsive")) %>%
-  kableExtra::add_footnote(label = c("Note: Maternal perineal laceration, rupture or tear during delivery involving the pelvic floor, perineal muscles, or vaginal muscles (2$^{nd}$ degree), anal sphincter (3$^{rd}$ degree), or rectal mucosa (4$^{th}$ degree)."), escape = FALSE)
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            lacer = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("Note: Maternal perineal laceration, rupture or tear during delivery involving the pelvic floor, perineal muscles, or vaginal muscles (2\u207f\u1d48 degree), anal sphincter (3\u02b3\u1d48 degree), or rectal mucosa (4\u1d57\u02b0 degree).",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+#   #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                             bootstrap_options = c("hover","condensed", "responsive")) %>%
+#   kableExtra::add_footnote(label = c("Note: Maternal perineal laceration, rupture or tear during delivery involving the pelvic floor, perineal muscles, or vaginal muscles (2$^{nd}$ degree), anal sphincter (3$^{rd}$ degree), or rectal mucosa (4$^{th}$ degree)."), escape = FALSE)
 ```
 
 ## Postpartum hemorrhage by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-58}
@@ -1331,8 +1587,8 @@ plot <- ggplot(data = dta1[!tolower(postph) %in% "no"],
                    #shape = postph,
                    text =paste(postph,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               paste0("<br>",postph," (%):") , scales::percent(rate, accuracy = .1)
                    )
                )
 ) +
@@ -1355,8 +1611,8 @@ plot <- ggplot(data = dta1[!tolower(postph) %in% "no"],
     breaks = pretty,
     labels = scales::percent_format(accuracy = 1),
     limits = c(0, NA)) +
-  labs(y = '% of deliveries', x = '') +
-  theme_minimal()
+  labs(y = 'Proportion of deliveries', x = '') +
+  theme_classic()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
@@ -1408,25 +1664,60 @@ tbl <- dta[, .(BrthYear,
   unique() %>%
   dcast(postph ~ BrthYear, value.var = "value")
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
 
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("#deliveries", "Postpartum hemorrhage")
+tbl[,1] <- c("Total deliveries", "Postpartum hemorrhage (%)")
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                            bootstrap_options = c("hover","condensed", "responsive")) %>%
-  kableExtra::add_footnote(label = c("Note: Postpartum hemorrhage is diagnosed if, after the delivery of the fetus, excessive maternal bleeding occurs from the genital tract with an estimated blood loss of greater than 500 mL for vaginal deliveries or 1000 mL for Caesarean section deliveries."))
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            postph = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("Note: Postpartum hemorrhage is diagnosed if, after the delivery of the fetus, excessive maternal bleeding occurs from the genital tract with an estimated blood loss of greater than 500 mL for vaginal deliveries or 1000 mL for Caesarean section deliveries.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+#   #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                             bootstrap_options = c("hover","condensed", "responsive")) %>%
+#   kableExtra::add_footnote(label = c("Note: Postpartum hemorrhage is diagnosed if, after the delivery of the fetus, excessive maternal bleeding occurs from the genital tract with an estimated blood loss of greater than 500 mL for vaginal deliveries or 1000 mL for Caesarean section deliveries."))
 ```
 
 ## Maternal blood transfusion by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-59}
@@ -1466,8 +1757,8 @@ plot <- ggplot(data = dta1[!tolower(transf) %in% "no"],
                    #shape = transf,
                    text =paste(transf,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>% of deliveries:" , scales::percent(rate, accuracy = .1)
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               paste0("<br>",transf, " (%):") , scales::percent(rate, accuracy = .01)
                    )
                )
 ) +
@@ -1490,8 +1781,8 @@ plot <- ggplot(data = dta1[!tolower(transf) %in% "no"],
     breaks = pretty,
     labels = scales::percent_format(accuracy = .1),
     limits = c(0, NA)) +
-  labs(y = '% of deliveries', x = '') +
-  theme_minimal()
+  labs(y = 'Proportion of deliveries', x = '') +
+  theme_classic()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
@@ -1531,25 +1822,60 @@ tbl <- dta[, .(BrthYear,
   unique() %>%
   dcast(transf ~ BrthYear, value.var = "value")
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
-tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.2f%%")))
 
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# deliveries", "Transfusion")
+tbl[,1] <- c("Total deliveries", "Transfusion (%)")
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                            bootstrap_options = c("hover","condensed", "responsive")) %>%
-  kableExtra::add_footnote(label = c("Note: One or more maternal transfusions of red blood cells in the antepartum, intrapartum, or postpartum periods."))
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            transf = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+) %>%
+  reactablefmtr::add_source("Note: One or more maternal transfusions of red blood cells in the antepartum, intrapartum, or postpartum periods.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+#   #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                             bootstrap_options = c("hover","condensed", "responsive")) %>%
+#   kableExtra::add_footnote(label = c("Note: One or more maternal transfusions of red blood cells in the antepartum, intrapartum, or postpartum periods."))
 ```
 
 ## Maternal antepartum hospital length of stay (in hours) by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-510}
@@ -1571,7 +1897,7 @@ plot <- ggplot(data = dta1,
                    group = 1,
                    #shape = BrthYear,
                    text =paste(BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                "<br>% Median lenght of stay (in hours):" , scales::comma(med, accuracy = .1)
                    )
                )
@@ -1594,7 +1920,7 @@ plot <- ggplot(data = dta1,
     labels = scales::comma_format(accuracy = 1),
     limits = c(0, NA)) +
   labs(y = 'Median antepartum LoS (in hours)', x = '') +
-  theme_minimal()
+  theme_classic()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
@@ -1630,24 +1956,55 @@ tbl <- dta[, .(BrthYear,
   unique() %>%
   dcast(variable ~ BrthYear, value.var = "value")
 
-coln <- names(tbl)
-coln[1] <- ""
+# coln <- names(tbl)
+# coln[1] <- ""
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%.1f", "%.1f")))
 
-names(tbl) <- coln
+#names(tbl) <- coln
 
-tbl[,1] <- c("# deliveries", "Mean (in hours)", "Median (in hours)")
+tbl[,1] <- c("Total deliveries", "Mean (in hours)", "Median (in hours)")
 
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                            bootstrap_options = c("hover","condensed", "responsive"))
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(color = "black",
+          #                                backgroundColor = "#e1e1e1",
+          #                                fontWeight = "bold",
+          #                                align = "center",
+          #                                borderBottom = "#dddddd")
+          # },
+          columns = list(
+            variable = colDef(name = "Lenght of stay",
+                             align = "left",
+                             width = 180)
+          )
+)
+
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+#   #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                             bootstrap_options = c("hover","condensed", "responsive"))
 ```
 
 ## Maternal postpartum hospital length of stay (in hours) by type of delivery and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-511}
@@ -1695,8 +2052,8 @@ plot <- ggplot(data = dta1,
                    shape = deliv,
                    text =paste(deliv,
                                "<br>Year:",BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
-                               "<br>% Median lenght of stay (in hours):" , scales::percent(med, accuracy = .1)
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               "<br> Median lenght of stay (in hours):" , scales::comma(med, accuracy = .1)
                    )
                )
 ) +
@@ -1710,7 +2067,7 @@ plot <- ggplot(data = dta1,
                     values = pal,
                      limits = names(pal)) +
   scale_shape_manual(name = "",
-                     values = c(15, 16, 17)) +
+                     values = c(21, 22, 23)) +
   # scale_x_date(date_breaks = "2 years",
   #              date_labels = "%Y") +
   scale_x_continuous(#trans = 'log2',
@@ -1720,7 +2077,7 @@ plot <- ggplot(data = dta1,
     labels = scales::comma_format(accuracy = 1),
     limits = c(0, NA)) +
   labs(y = 'Median postpartum LoS (in hours)', x = '') +
-  theme_minimal()
+  theme_classic()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
@@ -1766,13 +2123,21 @@ tbl1 <- tbl %>%
   unique() %>%
   dcast(variable ~ BrthYear, value.var = "value")
 
-coln <- names(tbl1)
-coln[1] <- ""
+# coln <- names(tbl1)
+# coln[1] <- ""
 
 tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%.1f", "%.1f")))
 
-names(tbl1) <- coln
-tbl1[,1] <- c("# deliveries", "Mean (in hours)", "Median (in hours)")
+#names(tbl1) <- coln
+tbl1[,1] <- c("Total deliveries", "Mean (in hours)", "Median (in hours)")
+
+# add comma separator to total count
+tbl1[1,-1] <- as.character(sapply(as.numeric(tbl1[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Spontenaous vaginal", rep(NA, ncol(tbl1)-1))))
+names(temp) <- names(tbl1)
+
+tbl1 <- rbind(temp,tbl1)
 
 tbl2 <- tbl %>%
   .[deliv %in% 2] %>%
@@ -1781,13 +2146,21 @@ tbl2 <- tbl %>%
   unique() %>%
   dcast(variable ~ BrthYear, value.var = "value")
 
-coln <- names(tbl2)
-coln[1] <- ""
+# coln <- names(tbl2)
+# coln[1] <- ""
 
 tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%.1f", "%.1f")))
 
-names(tbl2) <- coln
-tbl2[,1] <- c("# deliveries", "Mean (in hours)", "Median (in hours)")
+#names(tbl2) <- coln
+tbl2[,1] <- c("Total deliveries", "Mean (in hours)", "Median (in hours)")
+
+# add comma separator to total count
+tbl2[1,-1] <- as.character(sapply(as.numeric(tbl2[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Assisted vaginal", rep(NA, ncol(tbl2)-1))))
+names(temp) <- names(tbl2)
+
+tbl2 <- rbind(temp,tbl2)
 
 tbl3 <- tbl %>%
   .[deliv %in% 3] %>%
@@ -1796,30 +2169,64 @@ tbl3 <- tbl %>%
   unique() %>%
   dcast(variable ~ BrthYear, value.var = "value")
 
-coln <- names(tbl3)
-coln[1] <- ""
+# coln <- names(tbl3)
+# coln[1] <- ""
 
 tbl3 <- as.data.frame(sapply(tbl3, sprintf, fmt = c("%.0f", "%.1f", "%.1f")))
 
-names(tbl3) <- coln
-tbl3[,1] <- c("# deliveries", "Mean (in hours)", "Median (in hours)")
+#names(tbl3) <- coln
+tbl3[,1] <- c("Total deliveries", "Mean (in hours)", "Median (in hours)")
+
+# add comma separator to total count
+tbl3[1,-1] <- as.character(sapply(as.numeric(tbl3[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Caesarean section", rep(NA, ncol(tbl3)-1))))
+names(temp) <- names(tbl3)
+
+tbl3 <- rbind(temp,tbl3)
 
 tbl <- setDT(rbind(tbl1,tbl2,tbl3))
 
-names(tbl)[1] <- "Type of delivery"
+#names(tbl)[1] <- "Type of delivery"
 
+reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(align = "right",
+                                 vAlign = "center",
+                                 format = colFormat(locales = "en-CA", separators = TRUE),
+                                 style = list(fontSize = 14),
+                                 headerStyle = list(fontSize = 14),
+                                 minWidth = 50,
+                                 maxWidth = 180),
+          rowStyle = function(index){
+            if (index %in% (seq(1, nrow(tbl), by = 4))) list(color = "black",
+                                         backgroundColor = "#e1e1e1",
+                                         fontWeight = "bold",
+                                         align = "center",
+                                         borderBottom = "#dddddd")
+          },
+          columns = list(
+            variable = colDef(name = "",
+                             align = "left",
+                             width = 180)
+          )
+)
 
-
-knitr::kable(tbl,
-             format = "html",
-             booktabs = TRUE) %>%
-  # add an hline before the total
-  #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-kableExtra::row_spec(0, bold = TRUE) %>%
-#kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-kableExtra::group_rows("Spontaneous vaginal", start_row = 1, end_row = 3) %>%
-kableExtra::group_rows("Assited vaginal", start_row = 4, end_row = 6) %>%
-kableExtra::group_rows("Caesarean section", start_row = 7, end_row = 9) %>%
-kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-                            bootstrap_options = c("hover","condensed", "responsive"))
+# knitr::kable(tbl,
+#              format = "html",
+#              booktabs = TRUE) %>%
+#   # add an hline before the total
+#   #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+# kableExtra::row_spec(0, bold = TRUE) %>%
+# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
+# kableExtra::group_rows("Spontaneous vaginal", start_row = 1, end_row = 3) %>%
+# kableExtra::group_rows("Assited vaginal", start_row = 4, end_row = 6) %>%
+# kableExtra::group_rows("Caesarean section", start_row = 7, end_row = 9) %>%
+# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
+#                             bootstrap_options = c("hover","condensed", "responsive"))
 ```
