@@ -182,7 +182,7 @@ reactable(tbl,
 )
 ```
 
-## Maternal age (primiparous women) by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-32}
+## Maternal age by parity and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-32}
 
 ```{r plot32, fig.cap= paste('Maternal age (primiparous women) by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
@@ -190,14 +190,19 @@ dta1 <- dta[, .(BrthYear,
                DMMATAGE,
                DLPARA)] %>%
   .[!is.na(DLPARA)] %>%
-  .[DLPARA %in% 0] %>%
+  #.[DLPARA %in% 0] %>%
   .[, `:=` (matcat = fcase(
     DMMATAGE < 20, 1,
     DMMATAGE >= 35, 3, 
     default = 2
+    ),
+     parity = fcase(
+    DLPARA %in% 0 , 1,
+    DLPARA >= 1, 2,
+    default = 3
     ))] %>%
-  .[, `:=` (count = .N), by = list(BrthYear, matcat)] %>%
-  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, matcat, parity)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, parity)] %>%
   .[, `:=` (rate = count/total)] %>%
   unique()
 
@@ -206,7 +211,11 @@ dta1 <- dta1[, `:=` (matcat = factor(matcat,
                                    levels = c(1,2,3),
                                    labels = c("age < 20",
                                               "20 \u2264 age < 35",
-                                              "age \u2265 35")))]
+                                              "age \u2265 35")),
+                     parity = factor(parity,
+                                   levels = c(1,2),
+                                   labels = c("Primiparous",
+                                              "Multiparous")))]
 
 ## getting color for plotting
 
@@ -217,19 +226,21 @@ pal <- c("age < 20" = "#1b9e77",
 plot <- ggplot(data = dta1[!matcat %in% c("20 \u2264 age < 35")],
                aes(x = BrthYear,
                    y = rate,
-                   group = matcat,
+                   group = interaction(matcat,
+                                       parity),
                    shape = matcat,
                    color = matcat,
                    fill = matcat,
-                   text =paste(matcat,
+                   linetype = parity,
+                   text =paste(paste0(matcat," - ",parity),
                                "<br>Year:", BrthYear,
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
-                               paste0("<br>",matcat," (%):") , scales::percent(rate, accuracy = .1)
+                               paste0("<br>",matcat," - ",parity," (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
                ) +
   geom_point(aes(color = matcat, fill = matcat, shape = matcat)) +
-  geom_line(aes(color = matcat),
+  geom_line(aes(color = matcat, linetype = parity),
             alpha = 0.65) +
 # Specifying colors by age group
   scale_color_manual(name = "",
@@ -240,6 +251,8 @@ plot <- ggplot(data = dta1[!matcat %in% c("20 \u2264 age < 35")],
                     limits = names(pal)) +
   scale_shape_manual(name = "",
                      values = c(21, 22)) +
+  scale_linetype_manual(name = "",
+                        values = c(1,2)) +
   # scale_x_date(date_breaks = "2 years",
   #              date_labels = "%Y") +
   scale_x_continuous(#trans = 'log2',
@@ -2925,7 +2938,7 @@ plot <- ggplot(data = dta1[!prehtn %in% "No"],
                    fill = prehtn,
                    text =paste(prehtn,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",prehtn," (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
@@ -3182,7 +3195,7 @@ plot <- ggplot(data = dta1,
                    shape = pprf,
                    text =paste(pprf,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",pprf," (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
@@ -3433,7 +3446,7 @@ plot <- ggplot(data = dta1[!depanx %in% "No"],
                    #shape = depanx,
                    text =paste(depanx,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",depanx," (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
@@ -3600,7 +3613,7 @@ plot <- ggplot(data = dta1,
                    shape = bf,
                    text =paste(bf,
                                "<br>Year:", BrthYear,
-                               "<br># births:", scales::comma(total, accuracy = 1),
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",bf," (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
