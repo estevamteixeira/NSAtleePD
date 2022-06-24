@@ -5,5 +5,4 @@
 *.Rproj
 data/
 *.rds
-*.md
 *.knit.md
