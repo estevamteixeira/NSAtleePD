@@ -1,6 +1,6 @@
 # Nova Scotia Atlee Perinatal Database
 
-[![]("images/3_logos_2021-1.png")]
+[![]("images/3_logos_2021-1.png?raw=true")]
 
 ## Introduction
 
