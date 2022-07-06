@@ -69,7 +69,8 @@ dta1 <- unique(rbind(dta1, temp))[,
                                    levels = c(1,2,3),
                                    labels = c("Stillbirth",
                                               "Early neonatal mortality",
-                                              "Total perinatal mortality")))]
+                                              "Total perinatal mortality")))][,
+            .(BrthYear, rate, perimort, dlv)]
 
 ## getting color for plotting
 
@@ -117,6 +118,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -277,7 +279,8 @@ dta1 <- unique(rbind(dta1, temp))[,
                                    levels = c(1,2,3),
                                    labels = c("Neonatal mortality",
                                               "Postneonatal mortality",
-                                              "Total infant mortality")))]
+                                              "Total infant mortality")))][,
+            .(BrthYear, rate, infmort, dlv)]
 
 ## getting color for plotting
 
@@ -324,6 +327,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,

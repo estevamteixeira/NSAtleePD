@@ -14,7 +14,9 @@ knitr::opts_chunk$set(
   out.extra = "",
   out.width = "90%",
   fig.align = "center",
-  eval.after = "fig.cap")
+  eval.after = "fig.cap"
+  #cache = TRUE
+  )
 
 pckgs <- c("tidyverse", "knitr", "scales","janitor",
            "kableExtra", "formattable","data.table",
@@ -85,8 +87,7 @@ plot <- ggplot(data = dta1[!lbw %in% c("weight \u2265 2500 g")],
                    colour = lbw,
                    fill = lbw,
                    shape = lbw,
-                   text =paste(lbw,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(lbw," - ", BrthYear),
                                "<br>Total live births:", scales::comma(total, accuracy = 1),
                                paste0("<br>",lbw," (%):") , scales::percent(rate, accuracy = .1)
                    )
@@ -118,6 +119,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -263,8 +265,7 @@ plot <- ggplot(data = dta1[!lbw %in% c("weight \u2264 4000 g")],
                    colour = lbw,
                    fill = lbw,
                    shape = lbw,
-                   text =paste(lbw,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(lbw," - ", BrthYear),
                                "<br>Total live births:", scales::comma(total, accuracy = 1),
                                paste0("<br>",lbw," (%):") , scales::percent(rate, accuracy = .1)
                    )
@@ -296,6 +297,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -442,8 +444,7 @@ plot <- ggplot(data = dta1[!lbw %in% c("\u2265 10\u1d57\u02b0 percentile")],
                    colour = lbw,
                    fill = lbw,
                    shape = lbw,
-                   text =paste(lbw,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(lbw," - ", BrthYear),
                                "<br>Total live births:", scales::comma(total, accuracy = 1),
                                paste0("<br>",lbw," (%):") , scales::percent(rate, accuracy = .1)
                    )
@@ -475,6 +476,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -624,8 +626,7 @@ plot <- ggplot(data = dta1[!lbw %in% c("< 90\u1d57\u02b0 percentile")],
                    colour = lbw,
                    fill = lbw,
                    shape = lbw,
-                   text =paste(lbw,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(lbw," - ", BrthYear),
                                "<br>Total live births:", scales::comma(total, accuracy = 1),
                                paste0("<br>",lbw," (%):") , scales::percent(rate, accuracy = .1)
                    )
@@ -657,6 +658,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -812,8 +814,7 @@ plot <- ggplot(data = dta1[!pret %in% "\u2265 37 weeks"],
                    colour = pret,
                    fill = pret,
                    shape = pret,
-                   text =paste(pret,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(pret," - ", BrthYear),
                                "<br>Total live births:", scales::comma(total, accuracy = 1),
                                paste0("<br>",pret," (%):") , scales::percent(rate, accuracy = .1)
                    )
@@ -845,6 +846,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -998,6 +1000,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, trauma)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, trauma)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -1018,8 +1021,7 @@ plot <- ggplot(data = dta1[!trauma %in% "No"],
                    colour = trauma,
                    fill = trauma,
                    #shape = trauma,
-                   text =paste(trauma,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(trauma," - ", BrthYear),
                                "<br>Total live births:", scales::comma(total, accuracy = 1),
                                paste0("<br>",trauma," (%):") , scales::percent(rate, accuracy = .01)
                    )
@@ -1051,6 +1053,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1187,6 +1190,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, photot)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, photot)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -1207,8 +1211,7 @@ plot <- ggplot(data = dta1[!photot %in% "No"],
                    colour = photot,
                    fill = photot,
                    #shape = photot,
-                   text =paste(photot,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(photot," - ", BrthYear),
                                "<br>Total live births:", scales::comma(total, accuracy = 1),
                                paste0("<br>",photot," (%):") , scales::percent(rate, accuracy = .1)
                    )
@@ -1240,6 +1243,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1314,7 +1318,7 @@ reactable(tbl,
                              width = 180)
           )
 ) %>%
-  reactablefmtr::add_source("Phototherapy involves exposure of the neonate to coloured light in hospital (birth hospital or readmission in the neonatal period). It is given for known or suspected hyperbilirubinemia (jaundice).",
+  reactablefmtr::add_source("Note: Phototherapy involves exposure of the neonate to coloured light in hospital (birth hospital or readmission in the neonatal period). It is given for known or suspected hyperbilirubinemia (jaundice).",
                             font_size = 12,
                             #font_weight = "bold"
   )
@@ -1353,6 +1357,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, rds)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, rds)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -1381,10 +1386,9 @@ plot <- ggplot(data = dta1[!rds %in% "No"],
                    colour = rds,
                    fill = rds,
                    shape = rds,
-                   text =paste(rds,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(rds," - ", BrthYear),
                                "<br>Total live births:", scales::comma(total, accuracy = 1),
-                               paste0("<br>",rds,"(%):") , scales::percent(rate, accuracy = .01)
+                               paste0("<br>",rds," (%):") , scales::percent(rate, accuracy = .01)
                    )
                )
 ) +
@@ -1414,6 +1418,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1495,7 +1500,7 @@ reactable(tbl,
                              width = 180)
           )
 ) %>%
-  reactablefmtr::add_source("TTN = Transient tachypnea of the newborn.",
+  reactablefmtr::add_source("\u1d43 TTN = Transient tachypnea of the newborn.",
                             font_size = 12,
                             #font_weight = "bold"
   ) %>%
@@ -1543,6 +1548,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, sep, wght)] %>%
   .[, `:=` (total = .N), by = list(BrthYear, wght)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, wght, sep)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -1562,15 +1568,14 @@ dta1 <- dta1[, `:=` (sep = factor(sep,
 pal <- c("No" = "#1b9e77",
          "Yes" = "#d95f02")
 
-plot <- ggplot(data = dta1[!sep %in% "No" & !wght %in% "No"],
+plot <- ggplot(data = dta1[!sep %in% "No" & !wght %in% "No"][,.(BrthYear, rate, sep, total, wght)],
                aes(x = BrthYear,
                    y = rate,
                    group = sep,
                    colour = sep,
                    fill = sep,
                    #shape = sep,
-                   text =paste(sep,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(BrthYear),
                                "<br>Total live births:", scales::comma(total, accuracy = 1),
                                paste0("<br>",sep," (%):") , scales::percent(rate, accuracy = .1)
                    )
@@ -1598,16 +1603,19 @@ plot <- ggplot(data = dta1[!sep %in% "No" & !wght %in% "No"],
   labs(y = 'Proportion of live births', x = '') +
   facet_wrap(~wght, ncol = 2, scales = "free") +
   theme_classic() +
-  theme(panel.spacing.y = unit(3,"lines"),
+  theme(panel.spacing.y = unit(2,"lines"),
         panel.spacing.x = unit(2,"lines"),
         panel.background = element_blank(), 
-            panel.border = element_blank(), strip.background = element_blank(), 
-            plot.background = element_blank())
+        panel.border = element_blank(), 
+        strip.background = element_blank(), 
+        plot.background = element_blank(),
+        axis.title.y = element_text(margin = unit(c(0, 3, 0, 0), "mm")))
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1791,6 +1799,8 @@ dta1 <- dta[, .(BrthYear,
             # /24 - convert to days
             mean = mean(Infant_LoS/24, na.rm = TRUE),
             med = median(Infant_LoS/24, na.rm = TRUE)), by = list(BrthYear, wght)] %>%
+  .[!wght %in% "No"] %>%
+  .[,.(BrthYear, med, wght, total)] %>%
   unique()
 
 dta1 <- dta1[, `:=` (wght = factor(wght,
@@ -1807,15 +1817,14 @@ pal <- c("No" = "#1b9e77",
          "1000 g \u2264 weight < 2500 g" = "#7570b3",
          "weight \u2265 2500 g" = "#e7298a")
 
-plot <- ggplot(data = dta1[!wght %in% "No"],
+plot <- ggplot(data = dta1[!wght %in% "No"][,.(BrthYear, med, wght, total)],
                aes(x = BrthYear,
                    y = med,
                    group = wght,
                    colour = wght,
                    fill = wght,
                    shape = wght,
-                   text =paste(wght,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(wght," - ", BrthYear),
                                "<br>Total live births:", scales::comma(total, accuracy = 1),
                                "<br>Median lenght of stay (in days):" , scales::comma(med, accuracy = .1)
                    )
@@ -1847,6 +1856,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align  = "left",
     font = list(
       color = "white",
       size = 14,
@@ -2016,6 +2026,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, noas)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, noas)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -2036,8 +2047,7 @@ plot <- ggplot(data = dta1[!noas %in% "No"],
                    colour = noas,
                    fill = noas,
                    #shape = noas,
-                   text =paste(noas,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(noas," - ", BrthYear),
                                "<br>Total live births:", scales::comma(total, accuracy = 1),
                                paste0("<br>",noas," (%):") , scales::percent(rate, accuracy = .01)
                    )
@@ -2069,6 +2079,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,

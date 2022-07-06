@@ -1,4 +1,4 @@
-# Glossary {.unnumbered} {#section-glos}
+# Glossary {-} 
 
 **Assisted reproductive technology**
 

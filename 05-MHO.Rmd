@@ -4,7 +4,7 @@ params:
   year2: 2019
 fig.caption: yes
 ---
-  
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   echo = FALSE, 
@@ -12,15 +12,17 @@ knitr::opts_chunk$set(
   warning = FALSE,
   fig.pos = "h", 
   out.extra = "",
-  out.width = "90%",
-  fig.align = "center",
-  eval.after = "fig.cap")
+  out.width = '90%',
+  fig.align = 'center',
+  eval.after = "fig.cap"
+  #cache = TRUE
+  )
 
-pckgs <- c("tidyverse", "knitr", "scales","janitor",
-           "kableExtra", "formattable","data.table",
-           "forcats","lubridate", "anytime","reactable",
-           "htmltools", "plotly","purrr")
-# for (pp in `pckgs`)00/870 { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+pckgs <- c('tidyverse', 'knitr', 'scales','janitor',
+           'kableExtra', 'data.table','reactablefmtr',
+           'forcats','lubridate', 'anytime','reactable',
+           'htmltools', 'plotly','purrr')
+# for (pp in `pckgs`) { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
 
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(pckgs, character.only = TRUE)
@@ -106,6 +108,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, gestdiab)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, gestdiab)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -126,8 +129,7 @@ plot <- ggplot(data = dta1[!gestdiab %in% c("No")],
                    colour = gestdiab,
                    fill = gestdiab,
                    #shape = gestdiab,
-                   text =paste(gestdiab,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(gestdiab," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",gestdiab, " (%):") , scales::percent(rate, accuracy = .1)
                    )
@@ -159,6 +161,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -370,7 +373,8 @@ dta1 <- unique(rbind(dta1, temp))[,
                                    levels = c(1,2,3),
                                    labels = c("GH-total",
                                               "GH-no sig proteinuria",
-                                              "GH-sig proteinuria")))]
+                                              "GH-sig proteinuria")))][,
+              .(BrthYear, rate, total, ghcat)]
 
 ## getting color for plotting
 
@@ -385,8 +389,7 @@ plot <- ggplot(data = dta1,
                    colour = ghcat,
                    fill = ghcat,
                    shape = ghcat,
-                   text =paste(ghcat,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(ghcat," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",ghcat, " (%):") , scales::percent(rate, accuracy = .1)
                    )
@@ -418,6 +421,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -637,6 +641,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, preeclamp)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, preeclamp)] %>%
   unique()
 
 
@@ -657,8 +662,7 @@ plot <- ggplot(data = dta1[!tolower(preeclamp) %in% "no"],
                    colour = preeclamp,
                    fill = preeclamp,
                    #shape = preeclamp,
-                   text =paste(preeclamp,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(preeclamp," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",preeclamp," (%):") , scales::percent(rate, accuracy = .1)
                    )
@@ -690,6 +694,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -862,6 +867,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, plaprev)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, plaprev)] %>%
   unique()
 
 
@@ -882,8 +888,7 @@ plot <- ggplot(data = dta1[!tolower(plaprev) %in% "no"],
                    colour = plaprev,
                    fill = plaprev,
                    #shape = plaprev,
-                   text =paste(plaprev,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(plaprev," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",plaprev," (%):") , scales::percent(rate, accuracy = .01)
                    )
@@ -915,6 +920,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1020,6 +1026,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, plaabrp)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, plaabrp)] %>%
   unique()
 
 
@@ -1040,8 +1047,7 @@ plot <- ggplot(data = dta1[!tolower(plaabrp) %in% "no"],
                    colour = plaabrp,
                    fill = plaabrp,
                    #shape = plaabrp,
-                   text =paste(plaabrp,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(plaabrp," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>"," (%):") , scales::percent(rate, accuracy = .01)
                    )
@@ -1073,6 +1079,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1163,7 +1170,7 @@ reactable(tbl,
 #   kableExtra::add_footnote(label = c("Placental abruption is defined as bleeding from the placental site due to the partial or complete separation of the placenta. The diagnosis is not made on ultrasound alone and must be confirmed clinically."))
 ```
 
-## Perineal laceration among primiparous vaginal deliveries by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-56}
+## Perineal laceration deliveries by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-56}
   
 ```{r plot56, fig.cap= paste('Perineal laceration among primiparous vaginal deliveries by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
@@ -1176,7 +1183,7 @@ dta1 <- dta[, .(BrthYear,
 )] %>%
   # Primiparous women
   # vaginal delivery
-  .[DLPARA %in% 0 &
+  .[#DLPARA %in% 0 &
     # vaginal
     tolower(DMMETHOD) %in% c("biv", "spt", "vac", "low", "mid")] %>%
   .[, `:=` (lacer = fcase(
@@ -1186,11 +1193,18 @@ dta1 <- dta[, .(BrthYear,
     MO702 >=1 | MO70201 >=1 | MO70204 >=1 | MO70211 >=1 | MO70214 >=1 | MO70221 >=1 | MO70231 >=1 | MO70234 >=1 | MO70281 >=1 | MO70291 >=1 |
     MO703 >=1 | MO70301 >=1 | MO70304 >=1, 2, 
     default = 0
-  ))] %>%
+  ),
+  parity = fcase(
+    DLPARA %in% 0 , 1,
+    DLPARA >= 1, 2,
+    default = 3
+    ))] %>%
   #unique() %>%
-  .[, `:=` (count = .N), by = list(BrthYear, lacer)] %>%
-  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lacer, parity)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, parity)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, lacer, parity)] %>%
+  .[!parity %in% 3] %>%
   unique()
 
 
@@ -1198,7 +1212,11 @@ dta1 <- dta1[, `:=` (lacer = factor(lacer,
                                    levels = c(0,1,2),
                                    labels = c("No",
                                               "2\u207f\u1d48 degree laceration",
-                                              "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration")))]
+                                              "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration")),
+                      parity = factor(parity,
+                                   levels = c(1,2),
+                                   labels = c("Primiparous",
+                                              "Multiparous")))]
 
 ## getting color for plotting
 
@@ -1209,12 +1227,12 @@ pal <- c("No" = "#1b9e77",
 plot <- ggplot(data = dta1[!tolower(lacer) %in% "no"],
                aes(x = BrthYear,
                    y = rate,
-                   group = lacer,
+                   group = interaction(lacer, parity),
                    colour = lacer,
                    fill = lacer,
                    shape = lacer,
-                   text =paste(lacer,
-                               "<br>Year:", BrthYear,
+                   linetype = parity,
+                   text =paste(paste0(lacer," - ", parity," - ",BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",lacer," (%):") , scales::percent(rate, accuracy = .1)
                    )
@@ -1231,6 +1249,8 @@ plot <- ggplot(data = dta1[!tolower(lacer) %in% "no"],
                     limits = names(pal)) +
   scale_shape_manual(name = "",
                      values = c(21, 22)) +
+  scale_linetype_manual(name = "",
+                        values = c(1,2)) +
   # scale_x_date(date_breaks = "2 years",
   #              date_labels = "%Y") +
   scale_x_continuous(#trans = 'log2',
@@ -1239,13 +1259,15 @@ plot <- ggplot(data = dta1[!tolower(lacer) %in% "no"],
     breaks = pretty,
     labels = scales::percent_format(accuracy = .1),
     limits = c(0, NA)) +
-  labs(y = 'Proportion of primiparous vaginal deliveries', x = '') +
+  labs(y = 'Proportion of vaginal deliveries', x = '') +
   theme_classic()
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1268,7 +1290,7 @@ tbl <- dta[, .(BrthYear,
 )] %>%
   # Primiparous women
   # vaginal delivery
-  .[DLPARA %in% 0 &
+  .[#DLPARA %in% 0 &
     # vaginal
     tolower(DMMETHOD) %in% c("biv", "spt", "vac", "low", "mid")] %>%
   .[, `:=` (lacer = fcase(
@@ -1278,12 +1300,21 @@ tbl <- dta[, .(BrthYear,
     MO702 >=1 | MO70201 >=1 | MO70204 >=1 | MO70211 >=1 | MO70214 >=1 | MO70221 >=1 | MO70231 >=1 | MO70234 >=1 | MO70281 >=1 | MO70291 >=1 |
     MO703 >=1 | MO70301 >=1 | MO70304 >=1, 2, 
     default = 0
-  ))] %>%
+  ),
+ parity = fcase(
+    DLPARA %in% 0 , 1,
+    DLPARA >= 1, 2,
+    default = 3
+    ))] %>%
   #unique() %>%
-  .[, `:=` (count = .N), by = list(BrthYear, lacer)] %>%
-  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lacer, parity)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, parity)] %>%
   .[, `:=` (rate = 100*count/total)] %>%
-  unique() %>%
+  .[!parity %in% 3] %>%
+  unique()
+
+tbl1 <- tbl %>%
+  .[parity %in% 1] %>%
   melt(measure.vars = c("count", "total", "rate")) %>%
   .[!tolower(variable) %in% "count" &
     !lacer %in% 0] %>%
@@ -1296,14 +1327,49 @@ tbl <- dta[, .(BrthYear,
 # coln <- names(tbl)
 # coln[1] <- ""
 
-tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
 
 #names(tbl) <- coln
 
-tbl[,1] <- c("Total primiparous vaginal deliveries", "2\u207f\u1d48 degree laceration", "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration")
+tbl1[,1] <- c("Total vaginal deliveries\u1d43", "2\u207f\u1d48 degree laceration", "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration")
 
 # add comma separator to total count
-tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+tbl1[1,-1] <- as.character(sapply(as.numeric(tbl1[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Primiparous", rep(NA, ncol(tbl1)-1))))
+names(temp) <- names(tbl1)
+
+tbl1 <- rbind(temp,tbl1)
+
+tbl2 <- tbl %>%
+  .[parity %in% 2] %>%
+  melt(measure.vars = c("count", "total", "rate")) %>%
+  .[!tolower(variable) %in% "count" &
+    !lacer %in% 0] %>%
+  .[, `:=` (lacer = fifelse(tolower(variable) %in% "total",
+                          0, lacer))] %>%
+  .[, .(BrthYear, lacer, value)] %>%
+  unique() %>%
+  dcast(lacer ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+
+#names(tbl) <- coln
+
+tbl2[,1] <- c("Total vaginal deliveries\u1d43", "2\u207f\u1d48 degree laceration", "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration")
+
+# add comma separator to total count
+tbl2[1,-1] <- as.character(sapply(as.numeric(tbl2[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Multiparous", rep(NA, ncol(tbl2)-1))))
+names(temp) <- names(tbl2)
+
+tbl2 <- rbind(temp,tbl2)
+
+tbl <- setDT(rbind(tbl1, tbl2))
 
 reactable(tbl,
           rownames = FALSE,
@@ -1319,13 +1385,13 @@ reactable(tbl,
                                  headerStyle = list(fontSize = 14),
                                  minWidth = 50,
                                  maxWidth = 180),
-          # rowStyle = function(index){
-          #   if (index == nrow(tbl)) list(color = "black",
-          #                                backgroundColor = "#e1e1e1",
-          #                                fontWeight = "bold",
-          #                                align = "center",
-          #                                borderBottom = "#dddddd")
-          # },
+          rowStyle = function(index){
+            if (index %in% (seq(1,nrow(tbl), by = 4))) list(color = "black",
+                                         backgroundColor = "#e1e1e1",
+                                         fontWeight = "bold",
+                                         align = "center",
+                                         borderBottom = "#dddddd")
+          },
           columns = list(
             lacer = colDef(name = "",
                              align = "left",
@@ -1353,190 +1419,6 @@ reactable(tbl,
 #   kableExtra::add_footnote(label = c("Note: Maternal perineal laceration, rupture or tear during delivery involving the pelvic floor, perineal muscles, or vaginal muscles (2$^{nd}$ degree), anal sphincter (3$^{rd}$ degree), or rectal mucosa (4$^{th}$ degree)."), escape = FALSE)
 ```
 
-## Perineal laceration among multiparous vaginal deliveries by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-57}
-  
-```{r plot57, fig.cap= paste('Perineal laceration among multiparous vaginal deliveries by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
-
-dta1 <- dta[, .(BrthYear,
-       MO701,
-       MO702, MO70201, MO70204, MO70211, MO70214, MO70221, MO70231, MO70234, MO70281, MO70291,
-       MO703, MO70301, MO70304,
-       DLPARA,
-       DMMETHOD
-)] %>%
-  # Primiparous women
-  # vaginal delivery
-  .[DLPARA >=1 &
-    # vaginal
-    tolower(DMMETHOD) %in% c("biv", "spt", "vac", "low", "mid")] %>%
-  .[, `:=` (lacer = fcase(
-    # second degree
-    MO701 >=1, 1,
-    # 3rd degree
-    MO702 >=1 | MO70201 >=1 | MO70204 >=1 | MO70211 >=1 | MO70214 >=1 | MO70221 >=1 | MO70231 >=1 | MO70234 >=1 | MO70281 >=1 | MO70291 >=1 |
-    MO703 >=1 | MO70301 >=1 | MO70304 >=1, 2, 
-    default = 0
-  ))] %>%
-  #unique() %>%
-  .[, `:=` (count = .N), by = list(BrthYear, lacer)] %>%
-  .[, `:=` (total = .N), by = list(BrthYear)] %>%
-  .[, `:=` (rate = count/total)] %>%
-  unique()
-
-dta1 <- dta1[, `:=` (lacer = factor(lacer,
-                                   levels = c(0,1,2),
-                                   labels = c("No",
-                                              "2\u207f\u1d48 degree laceration",
-                                              "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration")))]
-
-## getting color for plotting
-
-pal <- c("No" = "#1b9e77",
-         "2\u207f\u1d48 degree laceration" = "#d95f02",
-         "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration" = "#7570b3")
-
-plot <- ggplot(data = dta1[!tolower(lacer) %in% "no"],
-               aes(x = BrthYear,
-                   y = rate,
-                   group = lacer,
-                   colour = lacer,
-                   fill = lacer,
-                   shape = lacer,
-                   text =paste(lacer,
-                               "<br>Year:", BrthYear,
-                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
-                               paste0("<br>",lacer," (%):") , scales::percent(rate, accuracy = .1)
-                   )
-               )
-) +
-  geom_point(aes(color = lacer, fill = lacer, shape = lacer)) +
-  geom_line(aes(color = lacer, fill = lacer)) +
-  # Specifying colors by age group
-  scale_color_manual(name = "",
-                     values = pal,
-                     limits = names(pal)) +
-  scale_fill_manual(name = "",
-                    values = pal,
-                    limits = names(pal)) +
-  scale_shape_manual(name = "",
-                     values = c(21, 22)) +
-  # scale_x_date(date_breaks = "2 years",
-  #              date_labels = "%Y") +
-  scale_x_continuous(#trans = 'log2',
-    breaks = pretty) +
-  scale_y_continuous(#trans = 'log2',
-    breaks = pretty,
-    labels = scales::percent_format(accuracy = .1),
-    limits = c(0, NA)) +
-  labs(y = 'Proportion of multiparous vaginal deliveries', x = '') +
-  theme_classic()
-
-plotly::ggplotly(plot, tooltip = c("text")) %>%
-  plotly::style(hoverlabel = list(
-    bgcolor  = "black",
-    bordercolor = "transparent",
-    font = list(
-      color = "white",
-      size = 14,
-      face = "bold"
-    )
-  )) %>%
-  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
-                               xanchor = "center"),
-                 font = list(face = "bold", size = 10),
-                 showlegend = TRUE)
-```
-
-```{r tbl57}
-tbl <- dta[, .(BrthYear,
-       MO701,
-       MO702, MO70201, MO70204, MO70211, MO70214, MO70221, MO70231, MO70234, MO70281, MO70291,
-       MO703, MO70301, MO70304,
-       DLPARA,
-       DMMETHOD
-)] %>%
-  # Primiparous women
-  # vaginal delivery
-  .[DLPARA >= 1 &
-    # vaginal
-    tolower(DMMETHOD) %in% c("biv", "spt", "vac", "low", "mid")] %>%
-  .[, `:=` (lacer = fcase(
-    # second degree
-    MO701 >=1, 1,
-    # 3rd degree
-    MO702 >=1 | MO70201 >=1 | MO70204 >=1 | MO70211 >=1 | MO70214 >=1 | MO70221 >=1 | MO70231 >=1 | MO70234 >=1 | MO70281 >=1 | MO70291 >=1 |
-    MO703 >=1 | MO70301 >=1 | MO70304 >=1, 2, 
-    default = 0
-  ))] %>%
-  #unique() %>%
-  .[, `:=` (count = .N), by = list(BrthYear, lacer)] %>%
-  .[, `:=` (total = .N), by = list(BrthYear)] %>%
-  .[, `:=` (rate = 100*count/total)] %>%
-  unique() %>%
-  melt(measure.vars = c("count", "total", "rate")) %>%
-  .[!tolower(variable) %in% "count" &
-    !lacer %in% 0] %>%
-  .[, `:=` (lacer = fifelse(tolower(variable) %in% "total",
-                          0, lacer))] %>%
-  .[, .(BrthYear, lacer, value)] %>%
-  unique() %>%
-  dcast(lacer ~ BrthYear, value.var = "value")
-
-# coln <- names(tbl)
-# coln[1] <- ""
-
-tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
-
-#names(tbl) <- coln
-
-tbl[,1] <- c("Total multiparous vaginal deliveries", "2\u207f\u1d48 degree laceration", "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration")
-
-# add comma separator to total count
-tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
-
-reactable(tbl,
-          rownames = FALSE,
-          resizable = TRUE, 
-          onClick = "expand",
-          highlight = TRUE, 
-          compact = TRUE,
-          defaultPageSize = nrow(tbl),
-          defaultColDef = colDef(align = "right",
-                                 vAlign = "center",
-                                 format = colFormat(locales = "en-CA", separators = TRUE),
-                                 style = list(fontSize = 14),
-                                 headerStyle = list(fontSize = 14),
-                                 minWidth = 50,
-                                 maxWidth = 180),
-          # rowStyle = function(index){
-          #   if (index == nrow(tbl)) list(color = "black",
-          #                                backgroundColor = "#e1e1e1",
-          #                                fontWeight = "bold",
-          #                                align = "center",
-          #                                borderBottom = "#dddddd")
-          # },
-          columns = list(
-            lacer = colDef(name = "",
-                             align = "left",
-                             width = 180)
-          )
-) %>%
-  reactablefmtr::add_source("Note: Maternal perineal laceration, rupture or tear during delivery involving the pelvic floor, perineal muscles, or vaginal muscles (2\u207f\u1d48 degree), anal sphincter (3\u02b3\u1d48 degree), or rectal mucosa (4\u1d57\u02b0 degree).",
-                            font_size = 12,
-                            #font_weight = "bold"
-  )
-
-# knitr::kable(tbl,
-#              format = "html",
-#              booktabs = TRUE) %>%
-#   # add an hline before the total
-#   #kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%  #kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
-# kableExtra::row_spec(0, bold = TRUE) %>%
-# #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
-# kableExtra::kable_styling(font_size = 12, full_width = FALSE,
-#                             bootstrap_options = c("hover","condensed", "responsive")) %>%
-#   kableExtra::add_footnote(label = c("Note: Maternal perineal laceration, rupture or tear during delivery involving the pelvic floor, perineal muscles, or vaginal muscles (2$^{nd}$ degree), anal sphincter (3$^{rd}$ degree), or rectal mucosa (4$^{th}$ degree)."), escape = FALSE)
-```
 
 ## Postpartum hemorrhage by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-58}
   
@@ -1565,6 +1447,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, postph)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, total, rate, postph)] %>%
   unique()
 
 
@@ -1585,8 +1468,7 @@ plot <- ggplot(data = dta1[!tolower(postph) %in% "no"],
                    colour = postph,
                    fill = postph,
                    #shape = postph,
-                   text =paste(postph,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(postph," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",postph," (%):") , scales::percent(rate, accuracy = .1)
                    )
@@ -1618,6 +1500,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1735,6 +1618,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, transf)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, transf)] %>%
   unique()
 
 
@@ -1755,8 +1639,7 @@ plot <- ggplot(data = dta1[!tolower(transf) %in% "no"],
                    colour = transf,
                    fill = transf,
                    #shape = transf,
-                   text =paste(transf,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(transf," - ",BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",transf, " (%):") , scales::percent(rate, accuracy = .01)
                    )
@@ -1788,6 +1671,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1889,6 +1773,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (total = .N,
             mean = mean(APLoS, na.rm = TRUE),
             med = median(APLoS, na.rm = TRUE)), by = list(BrthYear)] %>%
+  .[,.(BrthYear, total, med)] %>%
   unique()
 
 plot <- ggplot(data = dta1,
@@ -1926,6 +1811,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -2029,6 +1915,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (total = .N,
             mean = mean(PPLoS, na.rm = TRUE),
             med = median(PPLoS, na.rm = TRUE)), by = list(BrthYear, deliv)] %>%
+  .[,.(BrthYear, total, med, deliv)] %>%
   unique()
 
 dta1 <- dta1[, `:=` (deliv = factor(deliv,
@@ -2050,8 +1937,7 @@ plot <- ggplot(data = dta1,
                    colour = deliv,
                    fill = deliv,
                    shape = deliv,
-                   text =paste(deliv,
-                               "<br>Year:",BrthYear,
+                   text =paste(paste0(deliv," - ",BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                "<br> Median lenght of stay (in hours):" , scales::comma(med, accuracy = .1)
                    )
@@ -2083,6 +1969,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,

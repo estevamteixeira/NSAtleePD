@@ -31,7 +31,6 @@ dta <- readr::read_csv("data/NSAtleePD.csv") %>%
   setDT() %>%
   .[data.table::between(BrthYear, params$year1, params$year2), ]
 ```
-
 <!-- # (PART) Deliveries and Births {-} -->
 
 # Deliveries and Births {#section-1}
@@ -143,6 +142,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -283,6 +283,7 @@ dta1 <- dta[, .(BrthYear,
             art = sum(art, na.rm = TRUE)),
     by = list(BrthYear)] %>%
   .[, `:=` (prop = art/dlv)] %>%
+  .[,.(BrthYear, prop, dlv)] %>%
   unique()
 
 plot <- ggplot(data = dta1,
@@ -316,6 +317,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,

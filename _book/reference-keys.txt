@@ -40,7 +40,6 @@ fig:plot53
 fig:plot54
 fig:plot55
 fig:plot56
-fig:plot57
 fig:plot58
 fig:plot59
 fig:plot510
@@ -107,7 +106,6 @@ section-53
 section-54
 section-55
 section-56
-section-57
 section-58
 section-59
 section-510

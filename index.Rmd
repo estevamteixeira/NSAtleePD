@@ -21,6 +21,33 @@ cover-image: "images/Cover-1.png"
 url: http://rcp.nshealth.ca/
 ---
 
+```{r setup, include=FALSE, cache=TRUE, cache.extra = tools::md5sum('data/NSAtleePD.csv')}
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  message = FALSE, 
+  warning = FALSE,
+  fig.pos = "h", 
+  out.extra = "",
+  out.width = '90%',
+  fig.align = 'center',
+  eval.after = "fig.cap")
+
+pckgs <- c('tidyverse', 'knitr', 'scales','janitor',
+           'kableExtra', 'data.table','reactablefmtr',
+           'forcats','lubridate', 'anytime','reactable',
+           'htmltools', 'plotly','purrr')
+# for (pp in `pckgs`) { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(pckgs, character.only = TRUE)
+## data input
+
+# add data
+dta <- readr::read_csv("data/NSAtleePD.csv") %>%
+  setDT() %>%
+  .[data.table::between(BrthYear, params$year1, params$year2), ]
+```
+
 ```{r index-1, echo=FALSE}
 is_on_ghactions = identical(Sys.getenv("GITHUB_ACTIONS"), "true")
 is_online = curl::has_internet()

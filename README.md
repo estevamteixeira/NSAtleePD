@@ -12,7 +12,7 @@ The population in the NSAPD includes all reported <ins>**liveborn**</ins> and <i
 
 ## Prerequisites
 
-The report was built in [R markdown](https://rmarkdown.rstudio.com/index.html). Using the [`bookdown` package](https://bookdown.org/).
+The report was built in [R markdown](https://rmarkdown.rstudio.com/index.html). Using the [`bookdown`](https://bookdown.org/) package.
 
 Users will need to download [R Markdown](https://github.com/rstudio/rmarkdown) and **bookdown** (`install.packages("bookdown")`) in order to run this report.
 

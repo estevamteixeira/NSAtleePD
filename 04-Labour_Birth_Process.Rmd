@@ -12,15 +12,17 @@ knitr::opts_chunk$set(
   warning = FALSE,
   fig.pos = "h", 
   out.extra = "",
-  out.width = "90%",
-  fig.align = "center",
-  eval.after = "fig.cap")
+  out.width = '90%',
+  fig.align = 'center',
+  eval.after = "fig.cap",
+  cache = TRUE
+  )
 
-pckgs <- c("tidyverse", "knitr", "scales","janitor",
-           "kableExtra", "formattable","data.table",
-           "forcats","lubridate", "anytime","reactable",
-           "htmltools", "plotly","purrr")
-# for (pp in `pckgs`)00/870 { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+pckgs <- c('tidyverse', 'knitr', 'scales','janitor',
+           'kableExtra', 'data.table','reactablefmtr',
+           'forcats','lubridate', 'anytime','reactable',
+           'htmltools', 'plotly','purrr')
+# for (pp in `pckgs`) { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
 
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(pckgs, character.only = TRUE)
@@ -61,6 +63,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, parity, ind)] %>%
   .[, `:=` (total = .N), by = list(BrthYear, parity)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, ind, parity)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -87,8 +90,7 @@ plot <- ggplot(data = dta1[!ind %in% c("No")],
                    colour = parity,
                    fill = parity,
                    shape = parity,
-                   text =paste(parity,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(parity," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",parity," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -120,6 +122,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -311,6 +314,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, ind_reason)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, ind_reason)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -337,8 +341,7 @@ plot <- ggplot(data = dta1,
                    colour = ind_reason,
                    fill = ind_reason,
                    shape = ind_reason,
-                   text =paste(ind_reason,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(ind_reason," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",ind_reason," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -370,6 +373,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -494,6 +498,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, aug)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, aug)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -514,8 +519,7 @@ plot <- ggplot(data = dta1[!aug %in% "No"],
                    colour = aug,
                    fill = aug,
                    #shape = aug,
-                   text =paste(aug,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(aug," - ", BrthYear),
                                "<br>Total spontaneous labour", scales::comma(total, accuracy = 1),
                                paste0("<br>",aug," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -547,6 +551,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -668,6 +673,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, anes, deliv)] %>%
   .[, `:=` (total = .N), by = list(BrthYear, deliv)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, anes, deliv)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -696,8 +702,7 @@ plot <- ggplot(data = dta1[!deliv %in% "Caesarean section" &
                    colour = deliv,
                    fill = deliv,
                    shape = deliv,
-                   text =paste(deliv,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(deliv," - ", BrthYear),
                                "<br>Total deliveries", scales::comma(total, accuracy = 1),
                                paste0("<br>",deliv," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -729,6 +734,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -790,7 +796,7 @@ tbl1 <- tbl %>%
 tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%")))
 #names(tbl1) <- coln
 
-tbl1[,1] <- c("Total deliveries", "Anesthesia (%)")
+tbl1[,1] <- c("Total deliveries", "Anesthesia (%)\u1d43")
 
 # add comma separator to total count
 tbl1[1,-1] <- as.character(sapply(as.numeric(tbl1[1,-1]), scales::comma_format(accuracy = 1)))
@@ -817,7 +823,7 @@ tbl2 <- tbl %>%
 tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%")))
 # names(tbl2) <- coln
 
-tbl2[,1] <- c("Total deliveries", "Anesthesia (%)")
+tbl2[,1] <- c("Total deliveries", "Anesthesia (%)\u1d43")
 # add comma separator to total count
 tbl2[1,-1] <- as.character(sapply(as.numeric(tbl2[1,-1]), scales::comma_format(accuracy = 1)))
 
@@ -895,6 +901,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, deliv)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, deliv)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -917,8 +924,7 @@ plot <- ggplot(data = dta1,
                    colour = deliv,
                    fill = deliv,
                    shape = deliv,
-                   text =paste(deliv,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(deliv," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",deliv," (%):"), scales::percent(rate, accuracy = .1)
                                )
@@ -950,6 +956,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -994,7 +1001,7 @@ tbl <- dta[, .(BrthYear,
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 #names(tbl) <- coln
 
-tbl[,1] <- c("Total deliveries", "Spontaneous vaginal", "Assisted vaginal", "Caesarean section")
+tbl[,1] <- c("Total deliveries\u1d43", "Spontaneous vaginal", "Assisted vaginal", "Caesarean section")
 
 # add comma separator to total count
 tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
@@ -1065,6 +1072,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, cs)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, cs)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -1087,8 +1095,7 @@ plot <- ggplot(data = dta1,
                    colour = cs,
                    fill = cs,
                    shape = cs,
-                   text =paste(cs,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(cs," - ", BrthYear),
                                "<br>Total caesarean sections:", scales::comma(total, accuracy = 1),
                                paste0("<br>", cs, " (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -1120,6 +1127,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1195,7 +1203,7 @@ reactable(tbl,
                              width = 180)
           )
 ) %>%
-  reactablefmtr::add_source("The 1\u02e2\u1d57 stage is the period from the onset of labour until the cervix is fully dilated (10 cm). The 2\u207f\u1d48 stage is the period from 10 cm dilation of the cervix until the baby is delivered.",
+  reactablefmtr::add_source("Note: The 1\u02e2\u1d57 stage is the period from the onset of labour until the cervix is fully dilated (10 cm). The 2\u207f\u1d48 stage is the period from 10 cm dilation of the cervix until the baby is delivered.",
                             font_size = 12,
                             #font_weight = "bold"
   )
@@ -1236,6 +1244,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, cs)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, cs)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -1268,10 +1277,9 @@ plot <- ggplot(data = dta1,
                    colour = cs,
                    fill = cs,
                    shape = cs,
-                   text = paste(cs,
-                               "<br>Year:", BrthYear,
+                   text = paste(paste0(cs," - ", BrthYear),
                                "<br>Total caesarean sections:", scales::comma(total, accuracy = 1),
-                               paste0("<br>%",cs, " (%):") , scales::percent(rate, accuracy = .1)
+                               paste0("<br>",cs, " (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
                ) +
@@ -1301,6 +1309,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1440,6 +1449,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, robson, cs)] %>%
   .[, `:=` (total = .N), by = list(BrthYear, robson)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, cs, robson)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -1483,8 +1493,7 @@ plot <- ggplot(data = dta1[!cs %in% 0],
                    colour = robson,
                    fill = robson,
                    shape = robson,
-                   text = paste(robsonnam,
-                               "<br>Year:", BrthYear,
+                   text = paste(paste0(robsonnam," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>", robson, " (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -1516,6 +1525,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1824,7 +1834,7 @@ reactable(tbl,
                              width = 180)
           )
 ) %>%
-  reactablefmtr::add_source("The Robson criteria for the classification of deliveries into ten mutually exclusive groups by maternal characteristics allows comparison of Caesarean section rates at regional and national levels. Please note that for the purposes of this report: 
+  reactablefmtr::add_source("Note: The Robson criteria for the classification of deliveries into ten mutually exclusive groups by maternal characteristics allows comparison of Caesarean section rates at regional and national levels. Please note that for the purposes of this report: 
                             (1) group 6 (nulliparous breeches) and group 7 (multiparous breeches) are combined; and 
                             (2) group 9 (abnormal lies excluding breeches) is omitted due to small numbers. [Ref: Robson MS. Classification of caesarean sections. Fetal and Maternal Medicine Review 2001;12(1):23-39].",
                             font_size = 12,
@@ -1876,6 +1886,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, lab)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, lab)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -1896,8 +1907,7 @@ plot <- ggplot(data = dta1,
                    colour = lab,
                    fill = lab,
                    shape = lab,
-                   text = paste(lab,
-                               "<br>Year:", BrthYear,
+                   text = paste(paste0(lab," - ", BrthYear),
                                "<br>Total VBAC cadidates:", scales::comma(total, accuracy = 1),
                                paste0("<br>",lab," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -2059,6 +2069,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, deliv)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, deliv)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -2079,8 +2090,7 @@ plot <- ggplot(data = dta1,
                    colour = deliv,
                    fill = deliv,
                    shape = deliv,
-                   text = paste(deliv,
-                               "<br>Year:", BrthYear,
+                   text = paste(paste0(deliv," - ", BrthYear),
                                "<br>Total women with labour or induction:", scales::comma(total, accuracy = 1),
                                paste0("<br>",deliv, " (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -2112,6 +2122,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -2240,6 +2251,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, vbac4, vbac)] %>%
   .[, `:=` (total = .N), by = list(BrthYear, vbac)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, vbac4)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -2260,10 +2272,9 @@ plot <- ggplot(data = dta1,
                    colour = vbac4,
                    fill = vbac4,
                    shape = vbac4,
-                   text = paste(vbac4,
-                               "<br>Year:", BrthYear,
+                   text = paste(paste0(vbac4," - ", BrthYear),
                                "<br>Total VBAC candidates:", scales::comma(total, accuracy = 1),
-                               paste0("<br>",vbac4) , scales::percent(rate, accuracy = .1)
+                               paste0("<br>",vbac4, " (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
                ) +
@@ -2293,6 +2304,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -2344,7 +2356,7 @@ tbl <- dta[, .(BrthYear,
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
 #names(tbl) <- coln
 
-tbl[,1] <- c("Total VBAC candidates", "Dilation to 4 cm or induction attempt", "Less than 4 cm and no induction attempt")
+tbl[,1] <- c("Total VBAC candidates\u1d43", "Dilation to 4 cm or induction attempt", "Less than 4 cm and no induction attempt")
 
 # add comma separator to total count
 tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
@@ -2433,6 +2445,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, vbac4, deliv)] %>%
   .[, `:=` (total = .N), by = list(BrthYear, vbac4)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, deliv)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -2453,10 +2466,9 @@ plot <- ggplot(data = dta1,
                    colour = deliv,
                    fill = deliv,
                    shape = deliv,
-                   text = paste(deliv,
-                               "<br>Year:", BrthYear,
+                   text = paste(paste0(deliv," - ", BrthYear),
                                "<br>Total with 4 cm labour or induction", scales::comma(total, accuracy = 1),
-                               paste0("<br>%",deliv," (%):") , scales::percent(rate, accuracy = .1)
+                               paste0("<br>",deliv," (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
                ) +
@@ -2486,6 +2498,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -2619,6 +2632,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, epi, parity)] %>%
   .[, `:=` (total = .N), by = list(BrthYear, parity)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, parity, epi)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -2639,10 +2653,9 @@ plot <- ggplot(data = dta1[epi %in% 1],
                    colour = parity,
                    fill = parity,
                    shape = parity,
-                   text = paste(parity,
-                               "<br>Year:", BrthYear,
+                   text = paste(paste0(parity," - ", BrthYear),
                                "<br>Total vagina deliveries", scales::comma(total, accuracy = 1),
-                               paste0("<br>%",parity, " (%):") , scales::percent(rate, accuracy = .1)
+                               paste0("<br>",parity, " (%):") , scales::percent(rate, accuracy = .1)
                                )
                    )
                ) +
@@ -2672,6 +2685,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -2872,6 +2886,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, obs_int)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, obs_int)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -2892,10 +2907,9 @@ plot <- ggplot(data = dta1[obs_int %in% "Yes"],
                    colour = obs_int,
                    fill = obs_int,
                    #shape = obs_int,
-                   text = paste(obs_int,
-                               "<br>Year:", BrthYear,
+                   text = paste(BrthYear,
                                "<br>Total deliveries", scales::comma(total, accuracy = 1),
-                               "Obstetrical intervention (%):" , scales::percent(rate, accuracy = .1)
+                               "<br>Obstetrical intervention (%):" , scales::percent(rate, accuracy = .1)
                                )
                    )
                ) +
@@ -2925,6 +2939,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    alig = "left",
     font = list(
       color = "white",
       size = 14,

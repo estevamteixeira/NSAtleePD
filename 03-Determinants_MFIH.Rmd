@@ -14,13 +14,15 @@ knitr::opts_chunk$set(
   out.extra = "",
   out.width = '90%',
   fig.align = 'center',
-  eval.after = "fig.cap")
+  eval.after = "fig.cap",
+  cache = TRUE
+  )
 
 pckgs <- c('tidyverse', 'knitr', 'scales','janitor',
-           'kableExtra', 'formattable','data.table',
+           'kableExtra', 'data.table','reactablefmtr',
            'forcats','lubridate', 'anytime','reactable',
            'htmltools', 'plotly','purrr')
-# for (pp in `pckgs`)00/870 { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+# for (pp in `pckgs`) { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
 
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(pckgs, character.only = TRUE)
@@ -31,6 +33,7 @@ dta <- readr::read_csv("data/NSAtleePD.csv") %>%
   setDT() %>%
   .[data.table::between(BrthYear, params$year1, params$year2), ]
 ```
+
 
 <!-- # (PART) Deliveries and Births {-} -->
 
@@ -51,6 +54,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, matcat)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, matcat, total)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -73,8 +77,7 @@ plot <- ggplot(data = dta1[!matcat %in% c("20 \u2264 age < 35")],
                    colour = matcat,
                    fill = matcat,
                    shape = matcat,
-                   text =paste(matcat,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(matcat, " - ",BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",matcat," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -106,6 +109,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -184,7 +188,7 @@ reactable(tbl,
 
 ## Maternal age by parity and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-32}
 
-```{r plot32, fig.cap= paste('Maternal age (primiparous women) by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+```{r plot32, fig.cap= paste('Maternal age by parity and year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
                DMMATAGE,
@@ -204,6 +208,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, matcat, parity)] %>%
   .[, `:=` (total = .N), by = list(BrthYear, parity)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, matcat, parity)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -232,8 +237,7 @@ plot <- ggplot(data = dta1[!matcat %in% c("20 \u2264 age < 35")],
                    color = matcat,
                    fill = matcat,
                    linetype = parity,
-                   text =paste(paste0(matcat," - ",parity),
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(matcat," - ",parity, " - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",matcat," - ",parity," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -268,6 +272,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -284,15 +289,23 @@ tbl <- dta[, .(BrthYear,
                DMMATAGE,
                DLPARA)] %>%
   .[!is.na(DLPARA)] %>%
-  .[DLPARA %in% 0] %>%
+  #.[DLPARA %in% 0] %>%
   .[, `:=` (matcat = fcase(
     DMMATAGE < 20, 1,
     DMMATAGE >= 35, 3, 
     default = 2
+    ),
+     parity = fcase(
+    DLPARA %in% 0 , 1,
+    DLPARA >= 1, 2,
+    default = 3
     ))] %>%
-  .[, `:=` (count = .N), by = list(BrthYear, matcat)] %>%
-  .[, `:=` (total = .N), by = list(BrthYear)] %>%
-  .[, `:=` (rate = 100*count/total)] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, matcat, parity)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, parity)] %>%
+  .[, `:=` (rate = 100*count/total)] 
+
+tbl1 <- tbl %>%
+  .[parity %in% 1] %>%
   melt(measure.vars = c("rate", "total", "count")) %>%
   .[!matcat %in% 1 & !tolower(variable) %in% "count"] %>%
   .[, `:=` (matcat = fifelse(tolower(variable) %in% "total",
@@ -304,12 +317,42 @@ tbl <- dta[, .(BrthYear,
 # coln <- names(tbl)
 # coln[1] <- ""
 
-tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
 # names(tbl) <- coln
-tbl[,1] <- c("Total deliveries to primiparous women","age < 20", "age \u2265 35")
+tbl1[,1] <- c("Total deliveries","age < 20", "age \u2265 35")
 
 # add comma separator to total count
-tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+tbl1[1,-1] <- as.character(sapply(as.numeric(tbl1[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Primiparous", rep(NA, ncol(tbl1)-1))))
+names(temp) <- names(tbl1)
+
+tbl1 <- rbind(temp,tbl1)
+
+tbl2 <- tbl %>%
+  .[parity %in% 2] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!matcat %in% 1 & !tolower(variable) %in% "count"] %>%
+  .[, `:=` (matcat = fifelse(tolower(variable) %in% "total",
+                               1, matcat))] %>%
+  .[, .(BrthYear, matcat, value)] %>%
+  unique() %>%
+  dcast(matcat ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+# names(tbl) <- coln
+tbl2[,1] <- c("Total deliveries","age < 20", "age \u2265 35")
+
+# add comma separator to total count
+tbl2[1,-1] <- as.character(sapply(as.numeric(tbl2[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Multiparous", rep(NA, ncol(tbl2)-1))))
+names(temp) <- names(tbl2)
+
+tbl2 <- rbind(temp,tbl2)
 
 # knitr::kable(tbl,
 #              format = "html",
@@ -320,6 +363,7 @@ tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(acc
 # #kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
 # kableExtra::kable_styling(font_size = 12,
 #                           bootstrap_options = c("hover", "responsive"))
+tbl <- setDT(rbind(tbl1, tbl2))
 
 reactable(tbl,
           rownames = FALSE,
@@ -333,12 +377,12 @@ reactable(tbl,
                                  style = list(fontSize = 14),
                                  headerStyle = list(fontSize = 14),
                                  minWidth = 50),
-          # rowStyle = function(index){
-          #   if (index == nrow(tbl)) list(color = "black",
-          #                                backgroundColor = "#e1e1e1",
-          #                                fontWeight = "bold", 
-          #                                align = "center")
-          # },
+          rowStyle = function(index){
+            if (index %in% (seq(1,nrow(tbl), by = 4))) list(color = "black",
+                                         backgroundColor = "#e1e1e1",
+                                         fontWeight = "bold",
+                                         align = "center")
+          },
           columns = list(
             matcat = colDef(name = "",
                          align = "left",
@@ -363,6 +407,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, parity)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, parity, total, rate)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -385,8 +430,7 @@ plot <- ggplot(data = dta1,
                    color = parity,
                    shape = parity,
                    fill = parity,
-                   text =paste(parity,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(parity," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>", parity, " (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -419,6 +463,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -456,7 +501,7 @@ tbl <- dta[, .(BrthYear,
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 #names(tbl) <- coln
-tbl[,1] <- c("Total deliveries","0","1","\u2265 2")
+tbl[,1] <- c("Total deliveries\u1d43","0","1","\u2265 2")
 
 # add comma separator to total count
 tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
@@ -519,6 +564,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, partner)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, partner, total, rate)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -538,8 +584,7 @@ plot <- ggplot(data = dta1[!partner %in% "0"],
                    group = partner,
                    color = partner,
                    fill = partner,
-                   text =paste(partner,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(partner," - ", BrthYear),
                                "<br>Total births:", scales::comma(total, accuracy = 1),
                                "<br>Partenered (%):" , scales::percent(rate, accuracy = .1)
                                )
@@ -574,6 +619,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -613,7 +659,7 @@ tbl <- dta[, .(BrthYear,
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
 # names(tbl) <- coln
-tbl[,1] <- c("Total deliveries","Partnered")
+tbl[,1] <- c("Total deliveries\u1d43","Partnered")
 
 # add comma separator to total count
 tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
@@ -688,6 +734,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, smoker)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, smoker)] %>%
   unique()
 
 # age category using UNICODE codes
@@ -707,8 +754,7 @@ plot <- ggplot(data = dta1[!smoker %in% "0"],
                    group = smoker,
                    color = smoker,
                    fill = smoker,
-                   text =paste(smoker,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(smoker," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                "<br>Smoking (%):" , scales::percent(rate, accuracy = .1)
                                )
@@ -743,6 +789,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -790,7 +837,7 @@ tbl <- dta[, .(BrthYear,
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
 #names(tbl) <- coln
 
-tbl[,1] <- c("Total deliveries","Smoking")
+tbl[,1] <- c("Total deliveries\u1d43","Smoking")
 
 # add comma separator to total count
 tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
@@ -860,6 +907,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, change)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, change)] %>%
   unique()
 
 # smoking change category
@@ -882,8 +930,7 @@ plot <- ggplot(data = dta1,
                    color= change,
                    shape = change,
                    fill = change,
-                   text =paste(change,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(change," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",change, " (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -918,6 +965,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -960,7 +1008,7 @@ tbl <- dta[, .(BrthYear,
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 # names(tbl) <- coln
-tbl[,1] <- c("Total deliveries to smokers", "Quit", "Reduced", "No change or increased")
+tbl[,1] <- c("Total deliveries to smokers\u1d43", "Quit", "Reduced", "No change or increased")
 
 # add comma separator to total count
 tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
@@ -1002,7 +1050,7 @@ reactable(tbl,
                              width = 180)
           )
 ) %>%
-  reactablefmtr::add_source("Among women who were known to be smokers at the time of their first prenatal visit, and for whom amount smoked was known at both the first prenatal visit and at delivery.",
+  reactablefmtr::add_source("\u1d43 Among women who were known to be smokers at the time of their first prenatal visit, and for whom amount smoked was known at both the first prenatal visit and at delivery.",
                             font_size = 12,
                             #font_weight = "bold"
   )
@@ -1127,6 +1175,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, marij)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, total, rate, marij)] %>%
   unique()
 
 # smoking change category
@@ -1147,8 +1196,7 @@ plot <- ggplot(data = dta1[!marij %in% "No"],
                    color= marij,
                    #shape = marij,
                    fill = marij,
-                   text =paste(marij,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(marij," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                "<br>Reported cannabis (%):" , scales::percent(rate, accuracy = .1)
                                )
@@ -1183,6 +1231,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1286,6 +1335,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, oat)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, oat)] %>%
   unique()
 
 # smoking change category
@@ -1306,8 +1356,7 @@ plot <- ggplot(data = dta1[!oat %in% "No"],
                    color= oat,
                    #shape = oat,
                    fill = oat,
-                   text =paste(oat,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(oat, " - ",BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                "<br>Opioid agonist (%):" , scales::percent(rate, accuracy = .01)
                                )
@@ -1342,6 +1391,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1450,6 +1500,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, bmipp)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, bmipp)] %>%
   unique()
 
 # smoking change category
@@ -1474,8 +1525,7 @@ plot <- ggplot(data = dta1,
                    color= bmipp,
                    shape = bmipp,
                    fill = bmipp,
-                   text =paste(bmipp,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(bmipp, " - ",BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",bmipp," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -1510,6 +1560,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1549,7 +1600,7 @@ tbl <- dta[, .(BrthYear,
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 #names(tbl) <- coln
-tbl[,1] <- c("Total deliveries", "Underweight", "Normal weight", "Overweight", "Obese")
+tbl[,1] <- c("Total deliveries\u1d43", "Underweight", "Normal weight", "Overweight", "Obese")
 
 # add comma separator to total count
 tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
@@ -1622,6 +1673,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
   .[!bmipp %in% c(1,2,3)] %>%
+  .[,.(BrthYear, rate, total, bmipp)] %>%
   unique()
 
 # smoking change category
@@ -1644,8 +1696,7 @@ plot <- ggplot(data = dta1,
                    color= bmipp,
                    shape = bmipp,
                    fill = bmipp,
-                   text =paste(bmipp,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(bmipp," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",bmipp," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -1680,6 +1731,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1722,7 +1774,7 @@ tbl <- dta[, .(BrthYear,
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 #names(tbl) <- coln
-tbl[,1] <- c("Total deliveries", "Obese I (30 \u2264 BMI < 35)", "Obese II (35 \u2264 BMI < 40)", "Obese III (BMI \u2265 40)")
+tbl[,1] <- c("Total deliveries\u1d43", "Obese I (30 \u2264 BMI < 35)", "Obese II (35 \u2264 BMI < 40)", "Obese III (BMI \u2265 40)")
 
 # add comma separator to total count
 tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
@@ -1810,6 +1862,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, iom)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, iom)] %>%
   unique()
 
 # smoking change category
@@ -1832,8 +1885,7 @@ plot <- ggplot(data = dta1,
                    color= iom,
                    shape = iom,
                    fill = iom,
-                   text =paste(iom,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(iom," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>", iom, " (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -1868,6 +1920,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -1930,7 +1983,7 @@ tbl <- dta[, .(BrthYear,
 
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 #names(tbl) <- coln
-tbl[,1] <- c("Total deliveries", "Inadequate", "Adequate", "Excessive")
+tbl[,1] <- c("Total deliveries\u1d43", "Inadequate", "Adequate", "Excessive")
 
 # add comma separator to total count
 tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
@@ -2030,6 +2083,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, bmipp, iom)] %>%
   .[, `:=` (total = .N), by = list(BrthYear, bmipp)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, bmipp, iom)] %>%
   unique()
 
 # smoking change category
@@ -2058,8 +2112,7 @@ plot <- ggplot(data = dta1,
                    color= iom,
                    shape = iom,
                    fill = iom,
-                   text =paste(iom,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(iom," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",iom," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -2090,16 +2143,19 @@ plot <- ggplot(data = dta1,
   labs(y = 'Proportion of deliveries', x = '') +
   facet_wrap(~bmipp, ncol = 2) +
   theme_classic() +
-  theme(panel.spacing.y = unit(3,"lines"),
+  theme(panel.spacing.y = unit(2,"lines"),
         panel.spacing.x = unit(2,"lines"),
         panel.background = element_blank(), 
-            panel.border = element_blank(), strip.background = element_blank(), 
-            plot.background = element_blank())
+        panel.border = element_blank(), 
+        strip.background = element_blank(), 
+        plot.background = element_blank(),
+        axis.title.y = element_text(margin = unit(c(0, 3, 0, 0), "mm")))
 
 plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -2172,12 +2228,12 @@ tbl1 <- tbl %>%
 
 tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 #names(tbl1) <- coln
-tbl1[,1] <- c("Total deliveries", c("Inadequate (gain < 12.5 kg)", "Adequate (12.5 kg \u2264 gain \u2264 18 kg)", "Excessive (gain > 18 kg)"))
+tbl1[,1] <- c("Total deliveries\u1d43", c("Inadequate (gain < 12.5 kg)", "Adequate (12.5 kg \u2264 gain \u2264 18 kg)", "Excessive (gain > 18 kg)"))
 
 # add comma separator to total count
 tbl1[1,-1] <- as.character(sapply(as.numeric(tbl1[1,-1]), scales::comma_format(accuracy = 1)))
 
-temp <- as.data.frame(t(c("Underweight (BMI < 18.5)", rep(NA, ncol(tbl1)-1))))
+temp <- as.data.frame(t(c("Underweight", rep(NA, ncol(tbl1)-1))))
 names(temp) <- names(tbl1)
 
 tbl1 <- rbind(temp,tbl1)
@@ -2197,12 +2253,12 @@ tbl2 <- tbl %>%
 
 tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 #names(tbl2) <- coln
-tbl2[,1] <- c("Total deliveries", c("Inadequate (gain < 11.5 kg)", "Adequate (11.5 kg \u2264 gain \u2264 16 kg)", "Excessive (gain > 16 kg)"))
+tbl2[,1] <- c("Total deliveries\u1d43", c("Inadequate (gain < 11.5 kg)", "Adequate (11.5 kg \u2264 gain \u2264 16 kg)", "Excessive (gain > 16 kg)"))
 
 # add comma separator to total count
 tbl2[1,-1] <- as.character(sapply(as.numeric(tbl2[1,-1]), scales::comma_format(accuracy = 1)))
 
-temp <- as.data.frame(t(c("Normal weight (18.5 \u2264 BMI < 25)", rep(NA, ncol(tbl2)-1))))
+temp <- as.data.frame(t(c("Normal weight", rep(NA, ncol(tbl2)-1))))
 names(temp) <- names(tbl2)
 
 tbl2 <- rbind(temp,tbl2)
@@ -2222,12 +2278,12 @@ tbl3 <- tbl %>%
 
 tbl3 <- as.data.frame(sapply(tbl3, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 #names(tbl3) <- coln
-tbl3[,1] <- c("Total deliveries", c("Inadequate (gain < 7 kg)", "Adequate (7 kg \u2264 gain \u2264 11.5 kg)", "Excessive (gain > 11.5 kg)"))
+tbl3[,1] <- c("Total deliveries\u1d43", c("Inadequate (gain < 7 kg)", "Adequate (7 kg \u2264 gain \u2264 11.5 kg)", "Excessive (gain > 11.5 kg)"))
 
 # add comma separator to total count
 tbl3[1,-1] <- as.character(sapply(as.numeric(tbl3[1,-1]), scales::comma_format(accuracy = 1)))
 
-temp <- as.data.frame(t(c("Overweight (25 \u2264 BMI < 30)", rep(NA, ncol(tbl3)-1))))
+temp <- as.data.frame(t(c("Overweight", rep(NA, ncol(tbl3)-1))))
 names(temp) <- names(tbl3)
 
 tbl3 <- rbind(temp,tbl3)
@@ -2247,12 +2303,12 @@ tbl4 <- tbl %>%
 
 tbl4 <- as.data.frame(sapply(tbl4, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 #names(tbl4) <- coln
-tbl4[,1] <- c("Total deliveries", c("Inadequate (gain < 5 kg)", "Adequate (5 kg \u2264 gain \u2264 9 kg)", "Excessive (gain > 9 kg)"))
+tbl4[,1] <- c("Total deliveries\u1d43", c("Inadequate (gain < 5 kg)", "Adequate (5 kg \u2264 gain \u2264 9 kg)", "Excessive (gain > 9 kg)"))
 
 # add comma separator to total count
 tbl4[1,-1] <- as.character(sapply(as.numeric(tbl4[1,-1]), scales::comma_format(accuracy = 1)))
 
-temp <- as.data.frame(t(c("Obese (BMI \u2265 30)", rep(NA, ncol(tbl4)-1))))
+temp <- as.data.frame(t(c("Obese", rep(NA, ncol(tbl4)-1))))
 names(temp) <- names(tbl4)
 
 tbl4 <- rbind(temp,tbl4)
@@ -2439,6 +2495,7 @@ dta1 <- temp[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, ipwc_cat)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, ipwc_cat, total, rate)] %>%
   unique() %>%
   .[data.table::between(BrthYear, params$year1, params$year2), ]
 
@@ -2466,8 +2523,7 @@ plot <- ggplot(data = dta1,
                    color= ipwc_cat,
                    shape = ipwc_cat,
                    fill = ipwc_cat,
-                   text =paste(ipwc_cat,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(ipwc_cat," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",ipwc_cat," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -2502,6 +2558,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -2575,7 +2632,7 @@ rm(list = c("temp"))
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%","%1.1f%%")))
 #names(tbl) <- coln
 
-tbl[,1] <- c("Total deliveries", "Loss > 1 kg", "Within 1 kg", "1 kg < Gain < 5 kg", "Gain \u2265 5 kg")
+tbl[,1] <- c("Total deliveries\u1d43", "Loss > 1 kg", "Within 1 kg", "1 kg < Gain < 5 kg", "Gain \u2265 5 kg")
 
 # add comma separator to total count
 tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
@@ -2697,6 +2754,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, prexdiab)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, prexdiab, total, rate)] %>%
   unique()
 
 # smoking change category
@@ -2716,8 +2774,7 @@ plot <- ggplot(data = dta1[!prexdiab %in% "No"],
                    group = prexdiab,
                    color= prexdiab,
                    fill = prexdiab,
-                   text =paste(prexdiab,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(prexdiab," - ",BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",prexdiab," (%):") , scales::percent(rate, accuracy = .01)
                                )
@@ -2752,6 +2809,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -2917,6 +2975,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, prehtn)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, prehtn, total, rate)] %>%
   unique()
 
 # smoking change category
@@ -2936,10 +2995,9 @@ plot <- ggplot(data = dta1[!prehtn %in% "No"],
                    group = prehtn,
                    color= prehtn,
                    fill = prehtn,
-                   text =paste(prehtn,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(prehtn," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
-                               paste0("<br>",prehtn," (%):") , scales::percent(rate, accuracy = .1)
+                               paste0("<br>",prehtn," (%):") , scales::percent(rate, accuracy = .01)
                                )
                    )
                ) +
@@ -2972,6 +3030,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -3169,6 +3228,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, pprf)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, pprf, total, rate)] %>%
   unique()
 
 # smoking change category
@@ -3193,8 +3253,7 @@ plot <- ggplot(data = dta1,
                    color= pprf,
                    fill = pprf,
                    shape = pprf,
-                   text =paste(pprf,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(pprf, " - ",BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",pprf," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -3229,6 +3288,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -3356,7 +3416,7 @@ tbl <- dta[, .(BrthYear,
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
 #names(tbl) <- coln
 
-tbl[,1] <- c("Total deliveries", "None", "1", "2", "\u2265 3")
+tbl[,1] <- c("Total deliveries\u1d43", "None", "1", "2", "\u2265 3")
 
 # add comma separator to total count
 tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
@@ -3424,6 +3484,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, depanx)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, depanx, total, rate)] %>%
   unique()
 
 # smoking change category
@@ -3444,8 +3505,7 @@ plot <- ggplot(data = dta1[!depanx %in% "No"],
                    color= depanx,
                    fill = depanx,
                    #shape = depanx,
-                   text =paste(depanx,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(depanx," - ",BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",depanx," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -3480,6 +3540,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -3589,6 +3650,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (count = .N), by = list(BrthYear, bf)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, bf, total, rate)] %>%
   unique()
 
 # smoking change category
@@ -3611,8 +3673,7 @@ plot <- ggplot(data = dta1,
                    color= bf,
                    fill = bf,
                    shape = bf,
-                   text =paste(bf,
-                               "<br>Year:", BrthYear,
+                   text =paste(paste0(bf," - ", BrthYear),
                                "<br>Total deliveries:", scales::comma(total, accuracy = 1),
                                paste0("<br>",bf," (%):") , scales::percent(rate, accuracy = .1)
                                )
@@ -3647,6 +3708,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
   plotly::style(hoverlabel = list(
     bgcolor  = "black",
     bordercolor = "transparent",
+    align = "left",
     font = list(
       color = "white",
       size = 14,
@@ -3692,7 +3754,7 @@ tbl <- dta[, .(BrthYear,
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
 #names(tbl) <- coln
 
-tbl[,1] <- c("Total live births", "Exclusive", "Non-exclusive")
+tbl[,1] <- c("Total live births\u1d43", "Exclusive", "Non-exclusive")
 
 # add comma separator to total count
 tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
