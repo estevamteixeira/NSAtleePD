@@ -31,16 +31,18 @@ pacman::p_load(pckgs, character.only = TRUE)
 # add data
 dta <- readr::read_csv("data/NSAtleePD.csv") %>%
   setDT() %>%
-  .[data.table::between(BrthYear, params$year1, params$year2), ]
+  .[data.table::between(BrthYear, params$year1, params$year2) &
+    ProvNo %in% 12 &
+    (BIRTHWT >= 500 | GA_BEST >= 20), ]
 ```
 
 <!-- # (PART) Deliveries and Births {-} -->
   
 # Maternal Health Outcomes {#section-5}
   
-## Labour induction by parity and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-51}
+## Gestational diabetes by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-51}
   
-```{r plot51, fig.cap= paste('Labour induction by parity and year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+```{r plot51, fig.cap= paste('Gestational diabetes by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
                 # pre-pregnancy diabetes
@@ -65,8 +67,9 @@ dta1 <- dta[, .(BrthYear,
                  MO244, MO24401, MO24404, MO24409,
                  MO248, MO24801, MO24802, MO24803, MO24804,
                  MO249,
-                 IP700
-                )] %>%
+                 IP700,
+               CONTCTID)] %>%
+  unique() %>%
   .[, idx_244 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2440.", names(dta)))]] %>%
   .[, idx_245 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2450.", names(dta)))]] %>%
   .[, idx_246 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2460.", names(dta)))]] %>%
@@ -105,6 +108,8 @@ dta1 <- dta[, .(BrthYear,
      default = 0
    ))] %>%
   #unique() %>%
+  # among women without pre-existing diabetes
+  .[prexdiab %in% 0] %>%
   .[, `:=` (count = .N), by = list(BrthYear, gestdiab)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
@@ -198,8 +203,9 @@ tbl <- dta[, .(BrthYear,
                  MO244, MO24401, MO24404, MO24409,
                  MO248, MO24801, MO24802, MO24803, MO24804,
                  MO249,
-                 IP700
-                )] %>%
+                 IP700,
+               CONTCTID)] %>%
+  unique() %>%
   .[, idx_244 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2440.", names(dta)))]] %>%
   .[, idx_245 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2450.", names(dta)))]] %>%
   .[, idx_246 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2460.", names(dta)))]] %>%
@@ -238,6 +244,8 @@ tbl <- dta[, .(BrthYear,
      default = 0
    ))] %>%
   #unique() %>%
+  # among women without pre-existing diabetes
+  .[prexdiab %in% 0] %>%
   .[, `:=` (count = .N), by = list(BrthYear, gestdiab)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = 100*count/total)] %>%
@@ -245,7 +253,7 @@ tbl <- dta[, .(BrthYear,
   .[!tolower(variable) %in% "count" &
     !gestdiab %in% 0] %>%
   .[, `:=` (gestdiab = fifelse(tolower(variable) %in% "total",
-                          0, gestdiab))] %>%
+                          -1, gestdiab))] %>%
   .[, .(BrthYear, gestdiab, value)] %>%
   unique() %>%
   dcast(gestdiab ~ BrthYear, value.var = "value")
@@ -324,8 +332,9 @@ dta1 <- dta[, .(BrthYear,
                 # pre htn
                 R014_00700, R014_00800, 
                 MO10,
-                MI10, MI11, MI12, MI13, MI15, MCHTD
-                )] %>%
+                MI10, MI11, MI12, MI13, MI15, MCHTD,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (preeclamp = fcase(
     R014_00600 >=1 | R014_00800 >=1 |
     MO14 >=1 | MO11 >=1 | MO15 >=1, 1,
@@ -432,12 +441,16 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
                                xanchor = "center"),
                  font = list(face = "bold", size = 10),
                  showlegend = TRUE)
+  # plotly::config(
+  #   toImageButtonOptions = list(
+  #   format = "jpeg"
+  # ))
 ```
 
 ```{r tbl52}
 tbl <- dta[, .(BrthYear,
                 # pre-eclampsia
-                R014_00600, R014_00800,
+                R014_00600, R014_00800, R014_01800,
                 MO14, MO11, MO15,
                 # gh any
                 MO13,
@@ -445,8 +458,9 @@ tbl <- dta[, .(BrthYear,
                 # pre htn
                 R014_00700, R014_00800, 
                 MO10,
-                MI10, MI11, MI12, MI13, MI15, MCHTD
-                )] %>%
+                MI10, MI11, MI12, MI13, MI15, MCHTD,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (preeclamp = fcase(
     R014_00600 >=1 | R014_00800 >=1 |
     MO14 >=1 | MO11 >=1 | MO15 >=1, 1,
@@ -493,7 +507,7 @@ tbl <- unique(rbind(tbl, temp)) %>%
   melt(measure.vars = c("count", "total", "rate")) %>%
   .[!tolower(variable) %in% "count"] %>%
   .[, `:=` (ghcat = fifelse(tolower(variable) %in% "total",
-                          0, ghcat))] %>%
+                          -1, ghcat))] %>%
   .[, .(BrthYear, ghcat, value)] %>%
   unique() %>%
   dcast(ghcat ~ BrthYear, value.var = "value")
@@ -563,80 +577,25 @@ reactable(tbl,
   
 ```{r plot53, fig.cap= paste('Pre-eclampsia by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
-dta1 <- dta[, .(BrthYear,
-        # pre-existing hypertension
-        MO10, MO11,
-        MI10, MI11, MI12 , MI13, MI15, 
-        R014_00700, R014_00800, MCHTD,
-        # HELLP
-        MO14201, MO14202, MO14204,
-        MPIHTC, R014_01900,
-        # severe PIH
-        MO14101, MO14102,
-        R014_00600, R014_01800,
-        # eclampsia
-        MECLP, MO15,
-        # gestational hypertension
-        MO13, MO14,
-        R014_00500, MPIHT,
-        # anti hypertensive
-        R003_00700, R003_01700, R003_02300, R004_00400,
-        # any hypertension
-        MO16, R014_00550, IINDUCTN, INDICCS1, DLADMREA, MMSO4,
-        # proteinuria
-        MO12
-)] %>%
-  .[, `:=` (prehtn = fcase(
-    MO10 >=1 | MO11 >=1 | 
-      MI10 >=1 | MI11 >=1 | MI12 >=1 | MI13 >=1 | MI15 >=1 |
-      R014_00700 >=1 | R014_00800 >=1 | MCHTD >=1, 1, 
-    default = 0
-  ),
-  hellp = fcase(
-    MO14201 >=1 | MO14202 >=1 | MO14204 >=1 | 
-      tolower(MPIHTC) %in% "hlp" |
-      R014_01900 >=1, 1,
-    default = 0
-  ),
-  eclamp = fcase(
-    MECLP >=1 | MO15 >=1, 1,
-    default = 0
-  ),
-  antihtn = fcase(
-    R003_00700 >=1 | R003_01700 >=1 | R003_02300 >=1 |
-      R004_00400 >=1, 1,
-    default = 0
-  ))] %>%
-  .[, `:=` (sevpih = fcase(
-    hellp >=1 | MO14101>=1 | MO14102>=1 |
-      R014_00600>=1 | R014_01800 >=1 | tolower(MPIHTC) %in% "sev", 1,
-    default = 0
-  ),
-  gesthtn = fcase(
-    MO11>=1 | MO13>=1 | MO14>=1 |
-      R014_00500 >=1 | R014_00800>=1 | MPIHT >=1 | 
-      hellp >=1 | MO14101>=1 | MO14102>=1 |
-      R014_00600>=1 | R014_01800 >=1 | tolower(MPIHTC) %in% "sev" | eclamp >=1 , 1,
-    default = 0
-  ))] %>%
-  .[, `:=` (anyhtn = fcase(
-    prehtn >=1 | gesthtn >=1 | MO16 >=1 |
-      R014_00550>=1 | antihtn >=1 | 
-      tolower(INDICCS1) %in% "htd" | IINDUCTN %in% 12 |
-      DLADMREA %in% c(8,17) |
-      MMSO4 >= 1, 1,
-    default = 0
-  ),
-  protein = fcase(
-    eclamp >=1 |
-      R014_00800 >=1 | R014_00600 >=1 | R014_01800 >=1 |
-      hellp >=1 | MO14 >=1 | MO12 >=1, 1,
-    default = 0
-  ))] %>%
+dta1 <- tbl <- dta[, .(BrthYear,
+                # pre-eclampsia
+                R014_00600, R014_00800, R014_01800,
+                MO14, MO11, MO15,
+                # gh any
+                MO13,
+                R014_00500, R014_01900,
+                # pre htn
+                R014_00700, R014_00800, 
+                MO10,
+                MI10, MI11, MI12, MI13, MI15, MCHTD,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (preeclamp = fcase(
-    anyhtn >=1 & protein >=1, 1,
-    default = 0
-  ))] %>%
+    R014_00600 >=1 | R014_00800 >=1 |
+      R014_01800 >=1 | R014_01900 >=1 |
+    MO14 >=1 | MO11 >=1 | MO15 >=1, 1,
+   default = 0
+    ))] %>%
   #unique() %>%
   .[, `:=` (count = .N), by = list(BrthYear, preeclamp)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
@@ -709,79 +668,24 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 ```{r tbl53}
 tbl <- dta[, .(BrthYear,
-        # pre-existing hypertension
-        MO10, MO11,
-        MI10, MI11, MI12 , MI13, MI15, 
-        R014_00700, R014_00800, MCHTD,
-        # HELLP
-        MO14201, MO14202, MO14204,
-        MPIHTC, R014_01900,
-        # severe PIH
-        MO14101, MO14102,
-        R014_00600, R014_01800,
-        # eclampsia
-        MECLP, MO15,
-        # gestational hypertension
-        MO13, MO14,
-        R014_00500, MPIHT,
-        # anti hypertensive
-        R003_00700, R003_01700, R003_02300, R004_00400,
-        # any hypertension
-        MO16, R014_00550, IINDUCTN, INDICCS1, DLADMREA, MMSO4,
-        # proteinuria
-        MO12
-)] %>%
-  .[, `:=` (prehtn = fcase(
-    MO10 >=1 | MO11 >=1 | 
-      MI10 >=1 | MI11 >=1 | MI12 >=1 | MI13 >=1 | MI15 >=1 |
-      R014_00700 >=1 | R014_00800 >=1 | MCHTD >=1, 1, 
-    default = 0
-  ),
-  hellp = fcase(
-    MO14201 >=1 | MO14202 >=1 | MO14204 >=1 | 
-      tolower(MPIHTC) %in% "hlp" |
-      R014_01900 >=1, 1,
-    default = 0
-  ),
-  eclamp = fcase(
-    MECLP >=1 | MO15 >=1, 1,
-    default = 0
-  ),
-  antihtn = fcase(
-    R003_00700 >=1 | R003_01700 >=1 | R003_02300 >=1 |
-      R004_00400 >=1, 1,
-    default = 0
-  ))] %>%
-  .[, `:=` (sevpih = fcase(
-    hellp >=1 | MO14101>=1 | MO14102>=1 |
-      R014_00600>=1 | R014_01800 >=1 | tolower(MPIHTC) %in% "sev", 1,
-    default = 0
-  ),
-  gesthtn = fcase(
-    MO11>=1 | MO13>=1 | MO14>=1 |
-      R014_00500 >=1 | R014_00800>=1 | MPIHT >=1 | 
-      hellp >=1 | MO14101>=1 | MO14102>=1 |
-      R014_00600>=1 | R014_01800 >=1 | tolower(MPIHTC) %in% "sev" | eclamp >=1 , 1,
-    default = 0
-  ))] %>%
-  .[, `:=` (anyhtn = fcase(
-    prehtn >=1 | gesthtn >=1 | MO16 >=1 |
-      R014_00550>=1 | antihtn >=1 | 
-      tolower(INDICCS1) %in% "htd" | IINDUCTN %in% 12 |
-      DLADMREA %in% c(8,17) |
-      MMSO4 >= 1, 1,
-    default = 0
-  ),
-  protein = fcase(
-    eclamp >=1 |
-      R014_00800 >=1 | R014_00600 >=1 | R014_01800 >=1 |
-      hellp >=1 | MO14 >=1 | MO12 >=1, 1,
-    default = 0
-  ))] %>%
+                # pre-eclampsia
+                R014_00600, R014_00800, R014_01800,
+                MO14, MO11, MO15,
+                # gh any
+                MO13,
+                R014_00500, R014_01900,
+                # pre htn
+                R014_00700, R014_00800, 
+                MO10,
+                MI10, MI11, MI12, MI13, MI15, MCHTD,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (preeclamp = fcase(
-    anyhtn >=1 & protein >=1, 1,
-    default = 0
-  ))] %>%
+    R014_00600 >=1 | R014_00800 >=1 |
+      R014_01800 >=1 | R014_01900 >=1 |
+    MO14 >=1 | MO11 >=1 | MO15 >=1, 1,
+   default = 0
+    ))] %>%
   #unique() %>%
   .[, `:=` (count = .N), by = list(BrthYear, preeclamp)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
@@ -791,7 +695,7 @@ tbl <- dta[, .(BrthYear,
   .[!tolower(variable) %in% "count" &
     !preeclamp %in% 0] %>%
   .[, `:=` (preeclamp = fifelse(tolower(variable) %in% "total",
-                          0, preeclamp))] %>%
+                          -1, preeclamp))] %>%
   .[, .(BrthYear, preeclamp, value)] %>%
   unique() %>%
   dcast(preeclamp ~ BrthYear, value.var = "value")
@@ -857,8 +761,9 @@ reactable(tbl,
 ```{r plot54, fig.cap= paste('Placenta previa by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
-        MO44
-)] %>%
+        MO44,
+        CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (plaprev = fcase(
     MO44 >=1, 1, 
     default = 0
@@ -935,8 +840,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 ```{r tbl54}
 tbl <- dta[, .(BrthYear,
-        MO44
-)] %>%
+        MO44,
+        CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (plaprev = fcase(
     MO44 >=1, 1, 
     default = 0
@@ -1016,8 +922,9 @@ reactable(tbl,
 ```{r plot55, fig.cap= paste('Placental abruption by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
-        MO45
-)] %>%
+        MO45,
+        CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (plaabrp = fcase(
     MO45 >=1, 1, 
     default = 0
@@ -1094,8 +1001,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 ```{r tbl55}
 tbl <- dta[, .(BrthYear,
-        MO45
-)] %>%
+        MO45,
+        CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (plaabrp = fcase(
     MO45 >=1, 1, 
     default = 0
@@ -1170,17 +1078,18 @@ reactable(tbl,
 #   kableExtra::add_footnote(label = c("Placental abruption is defined as bleeding from the placental site due to the partial or complete separation of the placenta. The diagnosis is not made on ultrasound alone and must be confirmed clinically."))
 ```
 
-## Perineal laceration deliveries by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-56}
+## Perineal laceration deliveries by parity and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-56}
   
-```{r plot56, fig.cap= paste('Perineal laceration among primiparous vaginal deliveries by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+```{r plot56, fig.cap= paste('Perineal laceration deliveries by parity and year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
        MO701,
        MO702, MO70201, MO70204, MO70211, MO70214, MO70221, MO70231, MO70234, MO70281, MO70291,
        MO703, MO70301, MO70304,
        DLPARA,
-       DMMETHOD
-)] %>%
+       DMMETHOD,
+       MOTHERID)] %>%
+  unique() %>%
   # Primiparous women
   # vaginal delivery
   .[#DLPARA %in% 0 &
@@ -1286,8 +1195,9 @@ tbl <- dta[, .(BrthYear,
        MO702, MO70201, MO70204, MO70211, MO70214, MO70221, MO70231, MO70234, MO70281, MO70291,
        MO703, MO70301, MO70304,
        DLPARA,
-       DMMETHOD
-)] %>%
+       DMMETHOD,
+       MOTHERID)] %>%
+  unique() %>%
   # Primiparous women
   # vaginal delivery
   .[#DLPARA %in% 0 &
@@ -1431,8 +1341,9 @@ dta1 <- dta[, .(BrthYear,
      MO72,
      M_1KT51, M_1RM13GQC2,
      M_1RM13GQW0, M_5PC91HR, M_5PC91HT,
-     M_5PC91HU, M_5PC91HV, M_5PC91LA
-)] %>%
+     M_5PC91HU, M_5PC91HV, M_5PC91LA,
+     CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (postph = fcase(
     R003_00400 >=1 | R003_00900 >=1 | R003_01300 >=1 | R003_01400 >=1 | R003_02200 >=1 |
      R027_00400 >=1 | 
@@ -1521,8 +1432,9 @@ tbl <- dta[, .(BrthYear,
      MO72,
      M_1KT51, M_1RM13GQC2,
      M_1RM13GQW0, M_5PC91HR, M_5PC91HT,
-     M_5PC91HU, M_5PC91HV, M_5PC91LA
-)] %>%
+     M_5PC91HU, M_5PC91HV, M_5PC91LA,
+     CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (postph = fcase(
     R003_00400 >=1 | R003_00900 >=1 | R003_01300 >=1 | R003_01400 >=1 | R003_02200 >=1 |
      R027_00400 >=1 | 
@@ -1608,8 +1520,9 @@ reactable(tbl,
 ```{r plot59, fig.cap= paste('Maternal blood transfusion by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
-     RBC
-)] %>%
+     RBC,
+     CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (transf = fcase(
     RBC >=1 , 1,
     default = 0
@@ -1686,8 +1599,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 ```{r tbl59}
 tbl <- dta[, .(BrthYear,
-     RBC
-)] %>%
+     RBC,
+     CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (transf = fcase(
     RBC >=1 , 1,
     default = 0
@@ -1767,8 +1681,9 @@ reactable(tbl,
 ```{r plot510, fig.cap= paste('Maternal antepartum hospital length of stay (in hours) by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
-     APLoS
-)] %>%
+     APLoS,
+     MOTHERID)] %>%
+  unique() %>%
   .[!is.na(APLoS)] %>%
   .[, `:=` (total = .N,
             mean = mean(APLoS, na.rm = TRUE),
@@ -1826,8 +1741,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 ```{r tbl510}
 tbl <- dta[, .(BrthYear,
-     APLoS
-)] %>%
+     APLoS,
+     MOTHERID)] %>%
+  unique() %>%
   .[!is.na(APLoS)] %>%
   .[, `:=` (total = .N,
             mean = mean(APLoS, na.rm = TRUE),
@@ -1899,8 +1815,9 @@ reactable(tbl,
 
 dta1 <- dta[, .(BrthYear,
      PPLoS,
-     DMMETHOD
-)] %>%
+     DMMETHOD,
+     MOTHERID)] %>%
+  unique() %>%
   .[!is.na(PPLoS)] %>%
   .[, `:=` (deliv = fcase(
       # spontaneous vaginal
@@ -1985,8 +1902,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 ```{r tbl511}
 tbl <- dta[, .(BrthYear,
      PPLoS,
-     DMMETHOD
-)] %>%
+     DMMETHOD,
+     MOTHERID)] %>%
+  unique() %>%
   .[!is.na(PPLoS)] %>%
   .[, `:=` (deliv = fcase(
       # spontaneous vaginal

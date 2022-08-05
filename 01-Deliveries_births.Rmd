@@ -29,18 +29,25 @@ pacman::p_load(pckgs, character.only = TRUE)
 # add data
 dta <- readr::read_csv("data/NSAtleePD.csv") %>%
   setDT() %>%
-  .[data.table::between(BrthYear, params$year1, params$year2), ]
+  .[data.table::between(BrthYear, params$year1, params$year2) &
+    ProvNo %in% 12 &
+    (BIRTHWT >= 500 | GA_BEST >= 20), ]
 ```
 <!-- # (PART) Deliveries and Births {-} -->
+
+```{asis index-2, echo=knitr::is_latex_output()}
+\mainmatter
+```
 
 # Deliveries and Births {#section-1}
 
 ## Number of deliveries (live births and stillbirths) to residents by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-11}
 
-```{r tbl11}
-
+```{r tbl11h, fig.align='center', out.width='90%'}
 frmt_ns <- dta[, .(BrthYear,
-              DLNUMFET)] %>%
+              DLNUMFET,
+              CONTCTID)] %>%
+   unique() %>%
   .[,`:=` ( dlv = fifelse( DLNUMFET > 1, "Multiple", "Singleton"))] %>%
   # build 2x2 table
   janitor::tabyl(dlv, BrthYear) %>%
@@ -50,7 +57,9 @@ dplyr::mutate_if(is.numeric, scales::comma_format())
 
   
 tbl <- dta[, .(BrthYear,
-              DLNUMFET)] %>%
+              DLNUMFET,
+              CONTCTID)] %>%
+   unique() %>%
   .[,`:=` ( dlv = fifelse( DLNUMFET > 1, "Multiple", "Singleton"))] %>%
   # build 2x2 table
   janitor::tabyl(dlv, BrthYear) %>%
@@ -98,7 +107,6 @@ reactable(tbl,
           )
 )
 ```
-
 
 ## Number of births by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-12}
 
@@ -169,7 +177,7 @@ tbl <- dta[, .(BrthYear,
                              BTSEX %in% "M", "Male stillbirths","Female stillbirths"))),
             dlv1 = fifelse(!BTOUTCOM %in% "FTD", "Total live births", "Total stillbirths"))] %>%
   # remove ambiguous phenotype sex
-  .[!tolower(BTSEX) %in% "a"] %>%
+ # .[!tolower(BTSEX) %in% "a"] %>%
   .[, `:=` (BTSEX = factor(BTSEX,
                            levels = c("F","M"),
                            labels = c("Female","Male")))]
@@ -260,8 +268,9 @@ dta1 <- dta[, .(BrthYear,
                MZ37301,
                MZ37501,
                MZ37611,
-               MZ37911
-                )] %>%
+               MZ37911,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (art  = fifelse(
     MZ37001 >= 1 |
     MZ37101 >= 1 |
@@ -342,8 +351,9 @@ tbl <- dta[, .(BrthYear,
                MZ37301,
                MZ37501,
                MZ37611,
-               MZ37911
-                )] %>%
+               MZ37911,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (art  = fifelse(
     MZ37001 >= 1 |
     MZ37101 >= 1 |

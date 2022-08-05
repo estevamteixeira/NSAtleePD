@@ -20,7 +20,7 @@ pckgs <- c('tidyverse', 'knitr', 'scales','janitor',
            'kableExtra', 'reactablefmtr','data.table',
            'forcats','lubridate', 'anytime','reactable',
            'htmltools', 'plotly','purrr')
-# for (pp in `pckgs`)00/870 { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+# for (pp in `pckgs`) { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
 
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(pckgs, character.only = TRUE)
@@ -29,7 +29,9 @@ pacman::p_load(pckgs, character.only = TRUE)
 # add data
 dta <- readr::read_csv("data/NSAtleePD.csv") %>%
   setDT() %>%
-  .[data.table::between(BrthYear, params$year1, params$year2), ]
+  .[data.table::between(BrthYear, params$year1, params$year2) &
+    ProvNo %in% 12 &
+    (BIRTHWT >= 500 | GA_BEST >= 20), ]
 ```
 
 <!-- # (PART) Deliveries and Births {-} -->
@@ -44,18 +46,19 @@ dta1 <- unique(dta[, .(BrthYear,
                BTOUTCOM,
                DIFINOUT,
                BTSEX)] %>%
-  .[!tolower(BTSEX) %in% "a"] %>%
+  #.[!tolower(BTSEX) %in% "a"] %>%
   .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & !is.na(BTOUTCOM),
                               BTOUTCOM,
                               DIFINOUT))] %>%
-  #.[!tolower(babyout) %in% c("pid")] %>%
   .[, `:=` (perimort = fcase(
-    BTOUTCOM %in% c("FTD"), 1,
-    BTOUTCOM %in% c("END"), 2, 
-    default = 0
+    tolower(babyout) %in% c("lvd","lnd","ind"), 0,
+    tolower(babyout) %in% c("ftd"), 1, 
+    tolower(babyout) %in% c("end"), 2, 
+    default = -1
     ))] %>%
   .[, `:=` (perimortT = .N), by = list(BrthYear, perimort)] %>%
   .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[!perimort %in% -1] %>%
   .[, `:=` (rate = 1000*perimortT/dlv)] %>%
   .[!perimort %in% 0, .(BrthYear, dlv, perimort, perimortT, rate)])
 
@@ -136,19 +139,19 @@ tbl <- unique(dta[, .(BrthYear,
                BTOUTCOM,
                DIFINOUT,
                BTSEX)] %>%
-  .[!tolower(BTSEX) %in% "a"] %>%
+  #.[!tolower(BTSEX) %in% "a"] %>%
   .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & !is.na(BTOUTCOM),
                               BTOUTCOM,
                               DIFINOUT))] %>%
   .[, `:=` (perimort = fcase(
-    tolower(babyout) %in% c("ftd"), 1,
+    tolower(babyout) %in% c("lvd","lnd","ind"), 0,
+    tolower(babyout) %in% c("ftd"), 1, 
     tolower(babyout) %in% c("end"), 2, 
-    tolower(babyout) %in% c("pid"), 3, 
-    default = 0
+    default = -1
     ))] %>%
   .[, `:=` (perimortT = .N), by = list(BrthYear, perimort)] %>%
   .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
-  .[!perimort %in% 3] %>%
+  .[!perimort %in% -1] %>%
   .[, `:=` (rate = 1000*perimortT/dlv)] %>%
   .[!perimort %in% 0, .(BrthYear, dlv, perimort, perimortT, rate)])
 
@@ -235,32 +238,35 @@ reactablefmtr::add_source("Note: Stillbirth refers to the complete expulsion or 
 # select desired variables
 # create baby outcome
 # count total infant mortality by group
-dta1 <- unique(dta[, .(BrthYear,
+dta1 <- dta[, .(BrthYear,
                BTOUTCOM,
                DIFINOUT,
-               BTSEX)] %>%
-  .[!tolower(BTSEX) %in% "a" &
+               DIYROUT)] %>%
+  .[#!tolower(BTSEX) %in% "a" &
       # live births 
     !BTOUTCOM %in% "FTD"] %>%
-  .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & !is.na(BTOUTCOM),
-                              BTOUTCOM,
-                              DIFINOUT))] %>%
+  .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & is.na(DIYROUT) & !is.na(BTOUTCOM), BTOUTCOM,
+                      fifelse(is.na(DIYROUT) & !is.na(DIFINOUT), DIFINOUT, DIYROUT)))] %>%
   #.[!tolower(babyout) %in% c("pid")] %>%
   .[, `:=` (infmort = fcase(
     tolower(babyout) %in% c("lvd"), 0,
-    tolower(babyout) %in% c("end"), 2, 
-    tolower(babyout) %in% c("pid"), 3, 
-    default = 1
+    tolower(babyout) %in% c("end","lnd","nnd"), 1, 
+    tolower(babyout) %in% c("ind"), 2, 
+    default = -1
     ))] %>%
-  .[, `:=` (infmortT = .N), by = list(BrthYear, infmort)]) %>%
-  .[,.(BrthYear, infmort, infmortT)]
+  .[, `:=` (infmortT = .N), by = list(BrthYear, infmort)] %>%
+  .[,.(BrthYear, infmort, infmortT)] %>%
+  unique() %>%
+  tidyr::complete(infmort, nesting(BrthYear), fill = list(infmortT = 0)) %>% setDT()
 
 # get the total number of live births
-lb <- unique(dta1[infmort %in% 0, .(BrthYear, infmortT)]) %>%
-  data.table::setnames(old = "infmortT", new = "dlv")
+lb <- unique(dta1[, .(BrthYear, infmortT)]) %>%
+  .[ ,`:=` (infmortT = sum(infmortT, na.rm = TRUE)), by = list(BrthYear)] %>%
+  data.table::setnames(old = "infmortT", new = "dlv") %>%
+  unique()
 
 # remove the live births and post-infant death groups from data
-dta1 <- dta1[!infmort %in% c(0, 3)]
+dta1 <- dta1[!infmort %in% c(0)]
 
 # merge the total live births
 # compute the rate
@@ -341,32 +347,35 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 ```
 
 ```{r tbl22}
-tbl <- unique(dta[, .(BrthYear,
+tbl <- dta[, .(BrthYear,
                BTOUTCOM,
                DIFINOUT,
-               BTSEX)] %>%
-  .[!tolower(BTSEX) %in% "a" &
+               DIYROUT)] %>%
+  .[#!tolower(BTSEX) %in% "a" &
       # live births 
     !BTOUTCOM %in% "FTD"] %>%
-  .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & !is.na(BTOUTCOM),
-                              BTOUTCOM,
-                              DIFINOUT))] %>%
+  .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & is.na(DIYROUT) & !is.na(BTOUTCOM), BTOUTCOM,
+                      fifelse(is.na(DIYROUT) & !is.na(DIFINOUT), DIFINOUT, DIYROUT)))] %>%
   #.[!tolower(babyout) %in% c("pid")] %>%
   .[, `:=` (infmort = fcase(
     tolower(babyout) %in% c("lvd"), 0,
-    tolower(babyout) %in% c("end"), 2, 
-    tolower(babyout) %in% c("pid"), 3, 
-    default = 1
+    tolower(babyout) %in% c("end","lnd","nnd"), 1, 
+    tolower(babyout) %in% c("ind"), 2, 
+    default = -1
     ))] %>%
-  .[, `:=` (infmortT = .N), by = list(BrthYear, infmort)]) %>%
-  .[,.(BrthYear, infmort, infmortT)]
+  .[, `:=` (infmortT = .N), by = list(BrthYear, infmort)] %>%
+  .[,.(BrthYear, infmort, infmortT)] %>%
+  unique() %>%
+  tidyr::complete(infmort, nesting(BrthYear), fill = list(infmortT = 0)) %>% setDT()
 
 # get the total number of live births
-lb <- unique(tbl[infmort %in% 0, .(BrthYear, infmortT)]) %>%
-  data.table::setnames(old = "infmortT", new = "dlv")
+lb <- unique(tbl[, .(BrthYear, infmortT)]) %>%
+  .[ ,`:=` (infmortT = sum(infmortT, na.rm = TRUE)), by = list(BrthYear)] %>%
+  data.table::setnames(old = "infmortT", new = "dlv") %>%
+  unique()
 
 # remove the live births and post-infant death groups from data
-tbl <- tbl[!infmort %in% c(0, 3)]
+tbl <- tbl[!infmort %in% c(0, -1)]
 
 # merge the total live births
 # compute the rate

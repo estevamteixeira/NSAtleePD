@@ -31,7 +31,9 @@ pacman::p_load(pckgs, character.only = TRUE)
 # add data
 dta <- readr::read_csv("data/NSAtleePD.csv") %>%
   setDT() %>%
-  .[data.table::between(BrthYear, params$year1, params$year2), ]
+  .[data.table::between(BrthYear, params$year1, params$year2) &
+    ProvNo %in% 12 &
+    (BIRTHWT >= 500 | GA_BEST >= 20), ]
 ```
 
 <!-- # (PART) Deliveries and Births {-} -->
@@ -562,7 +564,8 @@ reactable(tbl,
                             font_size = 12,
                             #font_weight = "bold"
   ) %>%
-  reactablefmtr::add_source("Note: Size for gestational age is based on sex-specific percentiles of birth weight for gestational age relative to a Canadian reference population [Ref: Kramer et al. A New and Improved Population-Based Canadian Reference for Birth Weight for Gestational Age. Pediatrics 2001; 108 (2):e35].",
+  reactablefmtr::add_source(
+    source = reactablefmtr::html("Note: Size for gestational age is based on sex-specific percentiles of birth weight for gestational age relative to a Canadian reference population [<a href='https://publications.aap.org/pediatrics/article/108/2/e35/63679/A-New-and-Improved-Population-Based-Canadian?autologincheck=redirected'> Ref: Kramer et al. A New and Improved Population-Based Canadian Reference for Birth Weight for Gestational Age. Pediatrics 2001; 108 (2):e35 </a>]."),
                             font_size = 12,
                             #font_weight = "bold"
   )
@@ -744,7 +747,8 @@ reactable(tbl,
                             font_size = 12,
                             #font_weight = "bold"
   ) %>%
-  reactablefmtr::add_source("Note: Size for gestational age is based on sex-specific percentiles of birth weight for gestational age relative to a Canadian reference population [Ref: Kramer et al. A New and Improved Population-Based Canadian Reference for Birth Weight for Gestational Age. Pediatrics 2001; 108 (2):e35].",
+  reactablefmtr::add_source(
+    source = reactablefmtr::html("Note: Size for gestational age is based on sex-specific percentiles of birth weight for gestational age relative to a Canadian reference population [<a href='https://publications.aap.org/pediatrics/article/108/2/e35/63679/A-New-and-Improved-Population-Based-Canadian?autologincheck=redirected'> Ref: Kramer et al. A New and Improved Population-Based Canadian Reference for Birth Weight for Gestational Age. Pediatrics 2001; 108 (2):e35 </a>]."),
                             font_size = 12,
                             #font_weight = "bold"
   )
@@ -890,7 +894,7 @@ tbl <- dta[, .(BrthYear,
   .[!tolower(variable) %in% "count" &
     !pret %in% 5] %>%
   .[, `:=` (pret = fifelse(tolower(variable) %in% "total",
-                          0, pret))] %>%
+                          -1, pret))] %>%
   .[, .(BrthYear, pret, value)] %>%
   unique() %>%
   dcast(pret ~ BrthYear, value.var = "value")
@@ -1112,7 +1116,7 @@ tbl <- dta[, .(BrthYear,
   .[!tolower(variable) %in% "count" &
     !trauma %in% 0 ] %>%
   .[, `:=` (trauma = fifelse(tolower(variable) %in% "total",
-                               0, trauma))] %>%
+                               -1, trauma))] %>%
   .[, .(BrthYear, trauma, value)] %>%
   unique() %>%
   dcast(trauma ~ BrthYear, value.var = "value")
@@ -1778,9 +1782,9 @@ reactable(tbl,
 # kableExtra::add_footnote(label = c("Note: Pneumonia, either intrauterine or postnatal, or positive blood/cerebrospinal fluid cultures."))
 ```
 
-## Newborn length of stay (days) by birth weight and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-610}
+## Newborn length of stay (in days) by birth weight and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-610}
   
-```{r plot610, fig.cap= paste('Newborn length of stay (days) by birth weight and year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+```{r plot610, fig.cap= paste('Newborn length of stay (in days) by birth weight and year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
                 Infant_LoS,

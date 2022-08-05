@@ -14,8 +14,8 @@ knitr::opts_chunk$set(
   out.extra = "",
   out.width = '90%',
   fig.align = 'center',
-  eval.after = "fig.cap",
-  cache = TRUE
+  eval.after = "fig.cap"
+  #cache = TRUE
   )
 
 pckgs <- c('tidyverse', 'knitr', 'scales','janitor',
@@ -31,23 +31,27 @@ pacman::p_load(pckgs, character.only = TRUE)
 # add data
 dta <- readr::read_csv("data/NSAtleePD.csv") %>%
   setDT() %>%
-  .[data.table::between(BrthYear, params$year1, params$year2), ]
+  .[data.table::between(BrthYear, params$year1, params$year2) &
+    ProvNo %in% 12 &
+    (BIRTHWT >= 500 | GA_BEST >= 20), ]
 ```
 
 <!-- # (PART) Deliveries and Births {-} -->
 
 # Labour and Birth Processes {#section-4}
 
-##  Labour induction by parity and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-41}
+## Labour induction by parity and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-41}
 
 ```{r plot41, fig.cap= paste('Labour induction by parity and year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
                LABOUR,
                FAILED_INDUCTION,
-               DLPARA)] %>%
-  .[!is.na(DLPARA) |
-    !is.na(LABOUR) |
+               DLPARA,
+               CONTCTID)] %>%
+  unique() %>%
+  .[!is.na(DLPARA) &
+    !is.na(LABOUR) &
     !is.na(FAILED_INDUCTION)] %>%
   .[, `:=` (ind = fcase(
     tolower(LABOUR) %in% "i" | tolower(FAILED_INDUCTION) %in% "y", 1,
@@ -140,8 +144,8 @@ tbl <- dta[, .(BrthYear,
                LABOUR,
                FAILED_INDUCTION,
                DLPARA)] %>%
-  .[!is.na(DLPARA) |
-    !is.na(LABOUR) |
+  .[!is.na(DLPARA) &
+    !is.na(LABOUR) &
     !is.na(FAILED_INDUCTION)] %>%
   .[, `:=` (ind = fcase(
     tolower(LABOUR) %in% "i" | tolower(FAILED_INDUCTION) %in% "y", 1,
@@ -648,7 +652,9 @@ dta1 <- dta[, .(BrthYear,
                 R011_00200, R011_00300, R011_00400, R011_00500, R011_00600, R011_00800, R011_00900, R011_01000,
                 R012_00200, R012_00300, R012_00400, R012_00500, R012_00600, R012_00800, R012_00900, R012_01000,
                 MEPIS, MEPIC, MIFUS, MPCEA, MSEDN, MSPIN, MPUDL, MGENA,
-                DMMETHOD)] %>%
+                DMMETHOD,
+               CONTCTID)] %>%
+  unique() %>%
   .[, epi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00200","R010_00300", "R010_00400","R010_00500","R010_01000","R011_00200","R011_00300","R011_00400","R011_00500","R011_01000","R012_00200","R012_00300","R012_00400","R012_00500","R012_01000","MEPIS","MEPIC","MIFUS","MPCEA","MSEDN")] %>%
   .[, spi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00900","R010_01000","R011_00900","R011_01000","R012_00900","R012_01000","MSPIN","MSEDN")] %>%
   .[, dou := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_01000","R011_01000","R012_01000","MSEDN")] %>%
@@ -753,7 +759,9 @@ tbl <- dta[, .(BrthYear,
                 R011_00200, R011_00300, R011_00400, R011_00500, R011_00600, R011_00800, R011_00900, R011_01000,
                 R012_00200, R012_00300, R012_00400, R012_00500, R012_00600, R012_00800, R012_00900, R012_01000,
                 MEPIS, MEPIC, MIFUS, MPCEA, MSEDN, MSPIN, MPUDL, MGENA,
-                DMMETHOD)] %>%
+                DMMETHOD,
+               CONTCTID)] %>%
+  unique() %>%
   .[, epi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00200","R010_00300", "R010_00400","R010_00500","R010_01000","R011_00200","R011_00300","R011_00400","R011_00500","R011_01000","R012_00200","R012_00300","R012_00400","R012_00500","R012_01000","MEPIS","MEPIC","MIFUS","MPCEA","MSEDN")] %>%
   .[, spi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00900","R010_01000","R011_00900","R011_01000","R012_00900","R012_01000","MSPIN","MSEDN")] %>%
   .[, dou := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_01000","R011_01000","R012_01000","MSEDN")] %>%
@@ -885,7 +893,9 @@ reactable(tbl,
 ```{r plot45, fig.cap= paste('Type of delivery by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
-                DMMETHOD)] %>%
+                DMMETHOD,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (deliv = fcase(
       # spontaneous vaginal
       tolower(DMMETHOD) %in% c("biv", "spt"), 1,
@@ -971,7 +981,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 ```{r tbl45}
 tbl <- dta[, .(BrthYear,
-                DMMETHOD)] %>%
+                DMMETHOD,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (deliv = fcase(
       # spontaneous vaginal
       tolower(DMMETHOD) %in% c("biv", "spt"), 1,
@@ -1056,7 +1068,9 @@ reactable(tbl,
 ```{r plot46, fig.cap= paste('Stage of labour before Caesarean delivery by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
-                DMCSSTAG)] %>%
+                DMCSSTAG,
+                DMMETHOD)] %>%
+  .[tolower(DMMETHOD) %in% "cst"] %>%
   .[, `:=` (cs = fcase(
       # spontaneous vaginal
       tolower(DMCSSTAG) %in% c("cnol"), 1,
@@ -1142,13 +1156,15 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 ```{r tbl46}
 tbl <- dta[, .(BrthYear,
-                DMCSSTAG)] %>%
+               DMCSSTAG,
+               DMMETHOD)] %>%
+  .[tolower(DMMETHOD) %in% "cst"] %>%
   .[, `:=` (cs = fcase(
-      # spontaneous vaginal
+      # no labour
       tolower(DMCSSTAG) %in% c("cnol"), 1,
-      # assisted vaginal
+      # 1 stage
       tolower(DMCSSTAG) %in% c("c1st"), 2,
-      # c-section
+      # 2 stage
       tolower(DMCSSTAG) %in% c("c2nd"), 3,
       default = 4
     ))] %>%
@@ -1161,7 +1177,7 @@ tbl <- dta[, .(BrthYear,
   melt(measure.vars = c("rate", "total", "count")) %>%
   .[!tolower(variable) %in% "count"] %>%
   .[, `:=` (cs = fifelse(tolower(variable) %in% "total",
-                               0, cs))] %>%
+                               -1, cs))] %>%
   .[, .(BrthYear, cs, value)] %>%
   unique() %>%
   dcast(cs ~ BrthYear, value.var = "value")
@@ -1226,7 +1242,9 @@ reactable(tbl,
 ```{r plot47, fig.cap= paste('Primary indication for Caesarean delivery by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
-                INDICCS1)] %>%
+                INDICCS1,
+               DMMETHOD)] %>%
+  .[tolower(DMMETHOD) %in% "cst"] %>%
   .[, `:=` (cs = fcase(
       toupper(INDICCS1) %in% c("PCS"), 1,
       toupper(INDICCS1) %in% c("BCH","MLP","TLI"), 2,
@@ -1324,7 +1342,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 ```{r tbl47}
 tbl <- dta[, .(BrthYear,
-                INDICCS1)] %>%
+               INDICCS1,
+               DMMETHOD)] %>%
+  .[tolower(DMMETHOD) %in% "cst"] %>%
   .[, `:=` (cs = fcase(
       toupper(INDICCS1) %in% c("PCS"), 1,
       toupper(INDICCS1) %in% c("BCH","MLP","TLI"), 2,
@@ -1333,7 +1353,7 @@ tbl <- dta[, .(BrthYear,
       toupper(INDICCS1) %in% c("CXD","DBT","HTD","HIV","HSV","ISO","PTD","UTS"), 5,
       toupper(INDICCS1) %in% c("FGT","MAC","SFA","MTP","OFC"), 6,
       toupper(INDICCS1) %in% c("APL","PLP","PLC"), 7,
-      toupper(INDICCS1) %in% c("AMA","MAT","PRM","FID","OOC","SUR","OTR","PMC",""), 8,
+      toupper(INDICCS1) %in% c("AMA","MAT","PRM","FID","OOC","SUR","OTR","PMC","", " "), 8,
       default = 9
     ))] %>%
   #unique() %>%
@@ -1345,7 +1365,7 @@ tbl <- dta[, .(BrthYear,
   melt(measure.vars = c("rate", "total", "count")) %>%
   .[!tolower(variable) %in% "count"] %>%
   .[, `:=` (cs = fifelse(tolower(variable) %in% "total",
-                               0, cs))] %>%
+                               -1, cs))] %>%
   .[, .(BrthYear, cs, value)] %>%
   unique() %>%
   dcast(cs ~ BrthYear, value.var = "value")
@@ -1410,22 +1430,24 @@ dta1 <- dta[, .(BrthYear,
                 DLPARA,
                 LABOUR,
                 DLPRVCS,
-                DMMETHOD)] %>%
+                DMMETHOD,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (robsongrp = fcase(
   DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "s", 1,
   DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "i", 2.1,
   DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "n", 2.2,
-  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "s", 3,
-  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "i", 4.1,
-  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "n", 4.2,
-  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "s", 5.1,
-  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "i", 5.2,
-  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "n", 5.3,
+  DLNUMFET %in% 1 & GA_BEST >= 37  & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "s", 3,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') &  DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "i", 4.1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "n", 4.2,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "s", 5.1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "i", 5.2,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "n", 5.3,
   DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("bch","frb","ftb") & DLPARA %in% 0, 6,
   DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("bch","frb","ftb") & DLPARA > 0, 7,
   DLNUMFET > 1, 8,
   DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("shl","tli"), 9,
-  DLNUMFET %in% 1 & GA_BEST < 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC',''), 10,
+  DLNUMFET %in% 1 & GA_BEST < 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC','',' ', NA), 10,
   default = 0
   ))] %>%
   .[, `:=` (robson = fcase(
@@ -1445,12 +1467,11 @@ dta1 <- dta[, .(BrthYear,
   ))] %>%
   #unique() %>%
   # remove missing
-  .[!robson %in% 0] %>%
+  .[!robson %in% 0 |
+      !cs %in% 0] %>%
   .[, `:=` (count = .N), by = list(BrthYear, robson, cs)] %>%
   .[, `:=` (total = .N), by = list(BrthYear, robson)] %>%
-  .[, `:=` (rate = count/total)] %>%
-  .[,.(BrthYear, rate, total, cs, robson)] %>%
-  unique()
+  .[, `:=` (rate = 100*count/total)]
 
 # age category using UNICODE codes
 dta1 <- dta1[, `:=` (robsonnam = fcase(
@@ -1546,22 +1567,24 @@ tbl <- dta[, .(BrthYear,
                 DLPARA,
                 LABOUR,
                 DLPRVCS,
-                DMMETHOD)] %>%
+                DMMETHOD,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (robsongrp = fcase(
   DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "s", 1,
   DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "i", 2.1,
   DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "n", 2.2,
-  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "s", 3,
-  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "i", 4.1,
-  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "n", 4.2,
-  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "s", 5.1,
-  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "i", 5.2,
-  DLNUMFET %in% 1 & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "n", 5.3,
+  DLNUMFET %in% 1 & GA_BEST >= 37  & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "s", 3,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') &  DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "i", 4.1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "n", 4.2,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "s", 5.1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "i", 5.2,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "n", 5.3,
   DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("bch","frb","ftb") & DLPARA %in% 0, 6,
   DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("bch","frb","ftb") & DLPARA > 0, 7,
   DLNUMFET > 1, 8,
   DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("shl","tli"), 9,
-  DLNUMFET %in% 1 & GA_BEST < 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC',''), 10,
+  DLNUMFET %in% 1 & GA_BEST < 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC','',' ', NA), 10,
   default = 0
   ))] %>%
   .[, `:=` (robson = fcase(
@@ -1581,7 +1604,8 @@ tbl <- dta[, .(BrthYear,
   ))] %>%
   #unique() %>%
   # remove missing
-  .[!robson %in% 0] %>%
+  .[!robson %in% 0 |
+      !cs %in% 0] %>%
   .[, `:=` (count = .N), by = list(BrthYear, robson, cs)] %>%
   .[, `:=` (total = .N), by = list(BrthYear, robson)] %>%
   .[, `:=` (rate = 100*count/total)]
@@ -1592,7 +1616,7 @@ tbl1 <- tbl %>%
   melt(measure.vars = c("rate", "total", "count")) %>%
   .[!tolower(variable) %in% "count"] %>%
   .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
-                               0, robson))] %>%
+                               -1, robson))] %>%
   .[, .(BrthYear, robson, value)] %>%
   unique() %>%
   dcast(robson ~ BrthYear, value.var = "value")
@@ -1834,9 +1858,10 @@ reactable(tbl,
                              width = 180)
           )
 ) %>%
-  reactablefmtr::add_source("Note: The Robson criteria for the classification of deliveries into ten mutually exclusive groups by maternal characteristics allows comparison of Caesarean section rates at regional and national levels. Please note that for the purposes of this report: 
+  reactablefmtr::add_source(
+    source = reactablefmtr::html("Note: The Robson criteria for the classification of deliveries into ten mutually exclusive groups by maternal characteristics allows comparison of Caesarean section rates at regional and national levels. Please note that for the purposes of this report: 
                             (1) group 6 (nulliparous breeches) and group 7 (multiparous breeches) are combined; and 
-                            (2) group 9 (abnormal lies excluding breeches) is omitted due to small numbers. [Ref: Robson MS. Classification of caesarean sections. Fetal and Maternal Medicine Review 2001;12(1):23-39].",
+                            (2) group 9 (abnormal lies excluding breeches) is omitted due to small numbers. [<a href='https://www.cambridge.org/core/journals/fetal-and-maternal-medicine-review/article/abs/classification-of-caesarean-sections/1489F66B41725CF7719525EC11655D4C'> Ref: Robson MS. Classification of caesarean sections. Fetal and Maternal Medicine Review 2001;12(1):23-39 </a>]."),
                             font_size = 12,
                             #font_weight = "bold"
   )
@@ -1871,20 +1896,22 @@ dta1 <- dta[, .(BrthYear,
                 POSATDEL,
                 DLNUMFET,
                 DLPRVCS,
-                INDICCS1)] %>%
+                INDICCS1,
+                CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (lab = fcase(
     !tolower(LABOUR) %in% "n", 1, 
     default = 0
   ),
   vbac = fcase(
-    tolower(POSATDEL) %in% c("vtx", "pop", "") & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    tolower(POSATDEL) %in% c("vtx", "pop", "", " ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
     default = 0
   ))] %>%
   #unique() %>%
   # remove missing
   .[!vbac %in% 0] %>%
-  .[, `:=` (count = .N), by = list(BrthYear, lab)] %>%
-  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, vbac, lab)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, vbac)] %>%
   .[, `:=` (rate = count/total)] %>%
   .[,.(BrthYear, rate, total, lab)] %>%
   unique()
@@ -1953,8 +1980,7 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 ```{r tbl49}
 tbl <- dta[, .(BrthYear,
-                LABOUR,
-                DMMETHOD,
+               LABOUR,
                 POSATDEL,
                 DLNUMFET,
                 DLPRVCS,
@@ -1964,14 +1990,14 @@ tbl <- dta[, .(BrthYear,
     default = 0
   ),
   vbac = fcase(
-    tolower(POSATDEL) %in% c("vtx", "pop", "") & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    tolower(POSATDEL) %in% c("vtx", "pop", "", " ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
     default = 0
   ))] %>%
   #unique() %>%
   # remove missing
   .[!vbac %in% 0] %>%
-  .[, `:=` (count = .N), by = list(BrthYear, lab)] %>%
-  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, vbac, lab)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, vbac)] %>%
   .[, `:=` (rate = 100*count/total)] %>%
   melt(measure.vars = c("rate", "total", "count")) %>%
   .[!tolower(variable) %in% "count"] %>%
@@ -1987,7 +2013,7 @@ tbl <- dta[, .(BrthYear,
 tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
 #names(tbl) <- coln
 
-tbl[,1] <- c("Total VBAC candidates", "Labour or induction attempt", "No labour and no induction attempt")
+tbl[,1] <- c("Total VBAC candidates", "No labour and no induction attempt", "Labour or induction attempt")
 
 # add comma separator to total count
 tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
@@ -2019,7 +2045,8 @@ reactable(tbl,
                              width = 180)
           )
 ) %>%
-  reactablefmtr::add_source("Note: For the purposes of this report, a candidate for vaginal birth after Caesarean (VBAC) is woman who has had no more than one previous Caesarean section delivery; whose current pregnancy is a singleton in vertex presentation; and who has no contraindications for labour. On an individual basis when more information is available, such as type of previous Caesarean delivery, other factors are taken into account and women with two previous Caesarean deliveries may be considered for VBAC. [Ref: Society of Obstetricians and Gynaecologists of Canada. Guidelines for vaginal birth after previous caesarean birth. SOGC clinical practice guidelines. Number 155, February 2005. International Journal of Gynaecology and Obstetrics 2005;89(3):319-31].",
+  reactablefmtr::add_source(
+    source = reactablefmtr::html("Note: For the purposes of this report, a candidate for vaginal birth after Caesarean (VBAC) is woman who has had no more than one previous Caesarean section delivery; whose current pregnancy is a singleton in vertex presentation; and who has no contraindications for labour. On an individual basis when more information is available, such as type of previous Caesarean delivery, other factors are taken into account and women with two previous Caesarean deliveries may be considered for VBAC. [<a href='https://pubmed.ncbi.nlm.nih.gov/16001462/'> Ref: Society of Obstetricians and Gynaecologists of Canada. Guidelines for vaginal birth after previous caesarean birth. SOGC clinical practice guidelines. Number 155, February 2005. International Journal of Gynaecology and Obstetrics 2005;89(3):319-31 </a>]."),
                             font_size = 12,
                             #font_weight = "bold"
   )
@@ -2036,9 +2063,9 @@ reactable(tbl,
 # kableExtra::add_footnote(label = c("Note: For the purposes of this report, a candidate for vaginal birth after Caesarean (VBAC) is woman who has had no more than one previous Caesarean section delivery; whose current pregnancy is a singleton in vertex presentation; and who has no contraindications for labour. On an individual basis when more information is available, such as type of previous Caesarean delivery, other factors are taken into account and women with two previous Caesarean deliveries may be considered for VBAC. [Ref: Society of Obstetricians and Gynaecologists of Canada. Guidelines for vaginal birth after previous caesarean birth. SOGC clinical practice guidelines. Number 155, February 2005. International Journal of Gynaecology and Obstetrics 2005;89(3):319-31]."))
 ```
 
-## Type of delivery among candidates for vaginal birth after Caesarean who had any labour by year, `r paste0(params$year1,"-",params$year2)` {#section-410}
+## Type of delivery among candidates for vaginal birth after Caesarean (VBAC) who had any labour by year, `r paste0(params$year1,"-",params$year2)` {#section-410}
 
-```{r plot410, fig.cap= paste('Type of delivery among candidates for vaginal birth after Caesarean who had any labour by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+```{r plot410, fig.cap= paste('Type of delivery among candidates for vaginal birth after Caesarean (VBAC) who had any labour by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
                 LABOUR,
@@ -2052,7 +2079,7 @@ dta1 <- dta[, .(BrthYear,
     default = 0
   ),
   vbac = fcase(
-    tolower(POSATDEL) %in% c("vtx", "pop", "") & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    tolower(POSATDEL) %in% c("vtx", "pop", ""," ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
     default = 0
   ),
   deliv = fcase(
@@ -2066,8 +2093,8 @@ dta1 <- dta[, .(BrthYear,
   # remove missing
   .[!lab %in% 0 &
     !vbac %in% 0] %>%
-  .[, `:=` (count = .N), by = list(BrthYear, deliv)] %>%
-  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lab, deliv)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, lab)] %>%
   .[, `:=` (rate = count/total)] %>%
   .[,.(BrthYear, rate, total, deliv)] %>%
   unique()
@@ -2148,7 +2175,7 @@ tbl <- dta[, .(BrthYear,
     default = 0
   ),
   vbac = fcase(
-    tolower(POSATDEL) %in% c("vtx", "pop", "") & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    tolower(POSATDEL) %in% c("vtx", "pop", "", " ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
     default = 0
   ),
   deliv = fcase(
@@ -2162,8 +2189,8 @@ tbl <- dta[, .(BrthYear,
   # remove missing
   .[!lab %in% 0 &
     !vbac %in% 0] %>%
-  .[, `:=` (count = .N), by = list(BrthYear, deliv)] %>%
-  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lab, deliv)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, lab)] %>%
   .[, `:=` (rate = 100*count/total)] %>%
   melt(measure.vars = c("rate", "total", "count")) %>%
   .[!tolower(variable) %in% "count"] %>%
@@ -2236,7 +2263,7 @@ dta1 <- dta[, .(BrthYear,
                 INDICCS1,
                 CDILCS)] %>%
   .[, `:=` (vbac = fcase(
-    tolower(POSATDEL) %in% c("vtx", "pop", "") & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    tolower(POSATDEL) %in% c("vtx", "pop", "", " ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
     default = 0
   ),
   vbac4 = fcase(
@@ -2327,7 +2354,7 @@ tbl <- dta[, .(BrthYear,
                 INDICCS1,
                 CDILCS)] %>%
   .[, `:=` (vbac = fcase(
-    tolower(POSATDEL) %in% c("vtx", "pop", "") & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    tolower(POSATDEL) %in% c("vtx", "pop", "", " ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
     default = 0
   ),
   vbac4 = fcase(
@@ -2423,7 +2450,7 @@ dta1 <- dta[, .(BrthYear,
                 INDICCS1,
                 CDILCS)] %>%
   .[, `:=` (vbac = fcase(
-    tolower(POSATDEL) %in% c("vtx", "pop", "") & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    tolower(POSATDEL) %in% c("vtx", "pop", "", " ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
     default = 0
   ),
   vbac4 = fcase(
@@ -2520,13 +2547,17 @@ tbl <- dta[, .(BrthYear,
                 DLPRVCS,
                 INDICCS1,
                 CDILCS)] %>%
-  .[, `:=` (vbac = fcase(
-    tolower(POSATDEL) %in% c("vtx", "pop", "") & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+  .[, `:=` (lab = fcase(
+    !tolower(LABOUR) %in% "n", 1, 
+    default = 0
+  ),
+  vbac = fcase(
+    tolower(POSATDEL) %in% c("vtx", "pop", "", " ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
     default = 0
   ),
   vbac4 = fcase(
     !tolower(DMMETHOD) %in% c("cst") | CDILCS >= 4, 1,
-    tolower(DMMETHOD) %in% c("cst") & CDILCS < 4, 2,
+    #tolower(DMMETHOD) %in% c("cst") & CDILCS < 4, 2,
     default = 0
   ),
   deliv = fcase(
@@ -2540,8 +2571,8 @@ tbl <- dta[, .(BrthYear,
   # remove missing
   .[!vbac4 %in% c(0,2) &
     !vbac %in% 0] %>%
-  .[, `:=` (count = .N), by = list(BrthYear, vbac4, deliv)] %>%
-  .[, `:=` (total = .N), by = list(BrthYear, vbac4)] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lab, deliv)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, lab)] %>%
   .[, `:=` (rate = 100*count/total)] %>%
   melt(measure.vars = c("rate", "total", "count")) %>%
   .[!tolower(variable) %in% "count"] %>%
@@ -2608,7 +2639,9 @@ reactable(tbl,
 dta1 <- dta[, .(BrthYear,
                 DMMETHOD,
                 DMEPISIO,
-                DLPARA)] %>%
+                DLPARA,
+               MOTHERID)] %>%
+  unique() %>%
   .[, `:=` (deliv = fcase(
       # vaginal
       tolower(DMMETHOD) %in% c("biv", "spt", "vac", "low", "mid"), 1,
@@ -2702,7 +2735,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 tbl <-  dta[, .(BrthYear,
                 DMMETHOD,
                 DMEPISIO,
-                DLPARA)] %>%
+                DLPARA,
+                MOTHERID)] %>%
+  unique() %>%
   .[, `:=` (deliv = fcase(
       # vaginal
       tolower(DMMETHOD) %in% c("biv", "spt", "vac", "low", "mid"), 1,
@@ -2722,10 +2757,11 @@ tbl <-  dta[, .(BrthYear,
   #unique() %>%
   # remove missing
   .[deliv %in% 1 &
-    !is.na(DLPARA)] %>%
+    !is.na(parity)] %>%
   .[, `:=` (count = .N), by = list(BrthYear, epi, parity)] %>%
   .[, `:=` (total = .N), by = list(BrthYear, parity)] %>%
-  .[, `:=` (rate = 100*count/total)]
+  .[, `:=` (rate = 100*count/total)] %>%
+  unique()
 
 tbl1 <- tbl %>%
   .[epi %in% 1 &
@@ -2844,7 +2880,9 @@ dta1 <- dta[, .(BrthYear,
                 R010_00200, R010_00300, R010_00400, R010_00500, R010_00600, R010_00800, R010_00900, R010_01000,
                 R011_00200, R011_00300, R011_00400, R011_00500, R011_00600, R011_00800, R011_00900, R011_01000,
                 R012_00200, R012_00300, R012_00400, R012_00500, R012_00600, R012_00800, R012_00900, R012_01000,
-                MEPIS, MEPIC, MIFUS, MPCEA, MSEDN, MSPIN, MPUDL, MGENA)] %>%
+                MEPIS, MEPIC, MIFUS, MPCEA, MSEDN, MSPIN, MPUDL, MGENA,
+               MOTHERID)] %>%
+  unique() %>%
   .[, epi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00200","R010_00300", "R010_00400","R010_00500","R010_01000","R011_00200","R011_00300","R011_00400","R011_00500","R011_01000","R012_00200","R012_00300","R012_00400","R012_00500","R012_01000","MEPIS","MEPIC","MIFUS","MPCEA","MSEDN")] %>%
   .[, spi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00900","R010_01000","R011_00900","R011_01000","R012_00900","R012_01000","MSPIN","MSEDN")] %>%
   .[, dou := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_01000","R011_01000","R012_01000","MSEDN")] %>%
@@ -2877,12 +2915,6 @@ dta1 <- dta[, .(BrthYear,
     default = 0
   ))] %>%
   #unique() %>%
-  # remove missing
-  .[!is.na(LABOUR) |
-    !is.na(FAILED_INDUCTION) |
-    !is.na(AUGMENT) |
-    !is.na(DMEPISIO) |
-    !is.na(DMMETHOD)] %>%
   .[, `:=` (count = .N), by = list(BrthYear, obs_int)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
@@ -2962,9 +2994,19 @@ tbl <-  dta[, .(BrthYear,
                 R010_00200, R010_00300, R010_00400, R010_00500, R010_00600, R010_00800, R010_00900, R010_01000,
                 R011_00200, R011_00300, R011_00400, R011_00500, R011_00600, R011_00800, R011_00900, R011_01000,
                 R012_00200, R012_00300, R012_00400, R012_00500, R012_00600, R012_00800, R012_00900, R012_01000,
-                MEPIS, MEPIC, MIFUS, MPCEA, MSEDN, MSPIN, MPUDL, MGENA)] %>%
-  .[, epi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00200","R010_00300", "R010_00400","R010_00500","R010_01000","R011_00200","R011_00300","R011_00400","R011_00500","R011_01000","R012_00200","R012_00300","R012_00400","R012_00500","R012_01000","MEPIS","MEPIC","MIFUS","MPCEA","MSEDN")] %>%
-  .[, spi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00900","R010_01000","R011_00900","R011_01000","R012_00900","R012_01000","MSPIN","MSEDN")] %>%
+                MEPIS, MEPIC, MIFUS, MPCEA, MSEDN, MSPIN, MPUDL, MGENA,
+                MOTHERID)] %>%
+  unique() %>%
+  .[, epi := rowSums(.SD, na.rm = TRUE), .SDcols = c(
+    "R010_00200", "R010_00300", "R010_00400", "R010_00500", "R010_01000", 
+    "R011_00200", "R011_00300", "R011_00400", "R011_00500", "R011_01000", 
+    "R012_00200", "R012_00300", "R012_00400", "R012_00500", "R012_01000", 
+    "MEPIS","MEPIC","MIFUS","MPCEA","MSEDN")] %>%
+  .[, spi := rowSums(.SD, na.rm = TRUE), .SDcols = c(
+    "R010_00900", "R010_01000", 
+    "R011_00900", "R011_01000", 
+    "R012_00900", "R012_01000", 
+    "MSPIN", "MSEDN")] %>%
   .[, dou := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_01000","R011_01000","R012_01000","MSEDN")] %>%
   .[, pud := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00800","R011_00800","R012_00800","MPUDL")] %>%
   .[, gen := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00600","R011_00600","R012_00600","MGENA")] %>%
@@ -2985,7 +3027,7 @@ tbl <-  dta[, .(BrthYear,
     default = 0
   ),
   anes = fcase(
-    epi >= 1 | spi >= 1 | dou >= 1 | pud >= 1 | gen >= 1, 1,
+    epi >= 1 | spi >= 1 | dou >= 1 | pud >= 1 | gen >=1, 1,
     default = 0
     )
 )] %>%
@@ -2994,13 +3036,6 @@ tbl <-  dta[, .(BrthYear,
     interv >= 1, 1,
     default = 0
   ))] %>%
-  #unique() %>%
-  # remove missing
-  .[!is.na(LABOUR) |
-    !is.na(FAILED_INDUCTION) |
-    !is.na(AUGMENT) |
-    !is.na(DMEPISIO) |
-    !is.na(DMMETHOD)] %>%
   .[, `:=` (count = .N), by = list(BrthYear, obs_int)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = 100*count/total)] %>%
@@ -3008,7 +3043,7 @@ tbl <-  dta[, .(BrthYear,
   .[!tolower(variable) %in% "count" &
     !obs_int %in% 0] %>%
   .[, `:=` (obs_int = fifelse(tolower(variable) %in% "total",
-                               0, obs_int))] %>%
+                               -1, obs_int))] %>%
   .[, .(BrthYear, obs_int, value)] %>%
   unique() %>%
   dcast(obs_int ~ BrthYear, value.var = "value")

@@ -14,13 +14,13 @@ knitr::opts_chunk$set(
   out.extra = "",
   out.width = '90%',
   fig.align = 'center',
-  eval.after = "fig.cap",
-  cache = TRUE
+  eval.after = "fig.cap"
+  #cache = TRUE
   )
 
 pckgs <- c('tidyverse', 'knitr', 'scales','janitor',
            'kableExtra', 'data.table','reactablefmtr',
-           'forcats','lubridate', 'anytime','reactable',
+           'forcats','lubridate', 'anytime', 'reactable',
            'htmltools', 'plotly','purrr')
 # for (pp in `pckgs`) { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
 
@@ -31,7 +31,9 @@ pacman::p_load(pckgs, character.only = TRUE)
 # add data
 dta <- readr::read_csv("data/NSAtleePD.csv") %>%
   setDT() %>%
-  .[data.table::between(BrthYear, params$year1, params$year2), ]
+  .[data.table::between(BrthYear, params$year1, params$year2) &
+    ProvNo %in% 12 &
+    (BIRTHWT >= 500 | GA_BEST >= 20), ]
 ```
 
 
@@ -44,7 +46,9 @@ dta <- readr::read_csv("data/NSAtleePD.csv") %>%
 ```{r plot31, fig.cap= paste('Maternal age by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
-               DMMATAGE)] %>%
+               DMMATAGE,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (matcat = fcase(
     DMMATAGE < 20, 1,
     DMMATAGE >= 35, 3, 
@@ -123,19 +127,21 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 ```{r tbl31}
 tbl <- dta[, .(BrthYear,
-               DMMATAGE)] %>%
+               DMMATAGE,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (matcat = fcase(
     DMMATAGE < 20, 1,
-    DMMATAGE >= 35, 3, 
-    default = 2
+    DMMATAGE >= 35, 2, 
+    default = 3
     ))] %>%
   .[, `:=` (count = .N), by = list(BrthYear, matcat)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = 100*count/total)] %>%
   melt(measure.vars = c("rate", "total", "count")) %>%
-  .[!matcat %in% 1 & !tolower(variable) %in% "count"] %>%
+  .[!matcat %in% 3 & !tolower(variable) %in% "count"] %>%
   .[, `:=` (matcat = fifelse(tolower(variable) %in% "total",
-                               1, matcat))] %>%
+                               0, matcat))] %>%
   .[, .(BrthYear, matcat, value)] %>%
   unique() %>%
   dcast(matcat ~ BrthYear, value.var = "value")
@@ -192,7 +198,9 @@ reactable(tbl,
 
 dta1 <- dta[, .(BrthYear,
                DMMATAGE,
-               DLPARA)] %>%
+               DLPARA,
+               CONTCTID)] %>%
+  unique() %>%
   .[!is.na(DLPARA)] %>%
   #.[DLPARA %in% 0] %>%
   .[, `:=` (matcat = fcase(
@@ -287,7 +295,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 ```{r tbl32}
 tbl <- dta[, .(BrthYear,
                DMMATAGE,
-               DLPARA)] %>%
+               DLPARA,
+               CONTCTID)] %>%
+  unique() %>%
   .[!is.na(DLPARA)] %>%
   #.[DLPARA %in% 0] %>%
   .[, `:=` (matcat = fcase(
@@ -307,9 +317,9 @@ tbl <- dta[, .(BrthYear,
 tbl1 <- tbl %>%
   .[parity %in% 1] %>%
   melt(measure.vars = c("rate", "total", "count")) %>%
-  .[!matcat %in% 1 & !tolower(variable) %in% "count"] %>%
+  .[!matcat %in% 2 & !tolower(variable) %in% "count"] %>%
   .[, `:=` (matcat = fifelse(tolower(variable) %in% "total",
-                               1, matcat))] %>%
+                               0, matcat))] %>%
   .[, .(BrthYear, matcat, value)] %>%
   unique() %>%
   dcast(matcat ~ BrthYear, value.var = "value")
@@ -332,9 +342,9 @@ tbl1 <- rbind(temp,tbl1)
 tbl2 <- tbl %>%
   .[parity %in% 2] %>%
   melt(measure.vars = c("rate", "total", "count")) %>%
-  .[!matcat %in% 1 & !tolower(variable) %in% "count"] %>%
+  .[!matcat %in% 2 & !tolower(variable) %in% "count"] %>%
   .[, `:=` (matcat = fifelse(tolower(variable) %in% "total",
-                               1, matcat))] %>%
+                               0, matcat))] %>%
   .[, .(BrthYear, matcat, value)] %>%
   unique() %>%
   dcast(matcat ~ BrthYear, value.var = "value")
@@ -397,7 +407,9 @@ reactable(tbl,
 
 dta1 <- dta[, .(BrthYear,
                DMMATAGE,
-               DLPARA)] %>%
+               DLPARA,
+               CONTCTID)] %>%
+  unique() %>%
   .[!is.na(DLPARA)] %>%
   .[, `:=` (parity = fcase(
     DLPARA %in% 0 , 1,
@@ -478,7 +490,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 ```{r tbl33}
 tbl <- dta[, .(BrthYear,
                DMMATAGE,
-               DLPARA)] %>%
+               DLPARA,
+               CONTCTID)] %>%
+  unique() %>%
   .[!is.na(DLPARA)] %>%
   .[, `:=` (parity = fcase(
     DLPARA %in% 0 , 2,
@@ -553,7 +567,9 @@ reactable(tbl,
 ```{r plot34, fig.cap= paste('Maternal partner status by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
-               DLMRSTAT)] %>%
+               DLMRSTAT,
+               CONTCTID)] %>%
+  unique() %>%
   .[!is.na(DLMRSTAT)] %>%
   .[, `:=` (partner = fcase(
     DLMRSTAT %in% c(2,6,8) , 1,
@@ -634,7 +650,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 ```{r tbl34}
 tbl <- dta[, .(BrthYear,
-               DLMRSTAT)] %>%
+               DLMRSTAT,
+               CONTCTID)] %>%
+  unique() %>%
   .[!is.na(DLMRSTAT)] %>%
   .[, `:=` (partner = fcase(
     DLMRSTAT %in% c(2,6,8) , 1,
@@ -711,25 +729,22 @@ reactable(tbl,
   )
 ```
 
-## Smoking during pregnancy by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-35}
+## Maternal smoking during pregnancy by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-35}
 
-```{r plot35, fig.cap= paste('Smoking during pregnancy by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+```{r plot35, fig.cap= paste('Maternal smoking during pregnancy by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
-dta1 <- dta[, .(BrthYear,
+dta1 <- tbl <- dta[, .(BrthYear,
                ADMITSMK,
                DLPRESMK,
                DLVS1SMK,
-               SMOKE_20)] %>%
+               SMOKE_20,
+               CONTCTID)] %>%
+  unique() %>%
   .[, smk := rowSums(.SD, na.rm = TRUE), .SDcols = c("ADMITSMK", "DLVS1SMK", "SMOKE_20")] %>%
   .[, `:=` (smoker = fcase(
     ADMITSMK >= 1 | DLVS1SMK >=1 | SMOKE_20 >= 1, 1,
-    (is.na(ADMITSMK) | ADMITSMK %in% 0 &
-     is.na(DLPRESMK) | DLPRESMK %in% 0 &
-     is.na(DLVS1SMK) | DLVS1SMK %in% 0 &
-     is.na(SMOKE_20) | SMOKE_20 %in% 0) | 
-    ( DLPRESMK >= 1 &
-     smk %in% 0), 0, 
-     default = 2))] %>%
+    is.na(ADMITSMK) & is.na(DLVS1SMK) & is.na(DLPRESMK) & is.na(SMOKE_20), 2, 
+    default = 0))] %>%
   .[!smoker %in% 2 & !is.na(smoker)] %>%
   .[, `:=` (count = .N), by = list(BrthYear, smoker)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
@@ -807,17 +822,14 @@ tbl <- dta[, .(BrthYear,
                ADMITSMK,
                DLPRESMK,
                DLVS1SMK,
-               SMOKE_20)] %>%
+               SMOKE_20,
+               CONTCTID)] %>%
+  unique() %>%
   .[, smk := rowSums(.SD, na.rm = TRUE), .SDcols = c("ADMITSMK", "DLVS1SMK", "SMOKE_20")] %>%
   .[, `:=` (smoker = fcase(
     ADMITSMK >= 1 | DLVS1SMK >=1 | SMOKE_20 >= 1, 1,
-    (is.na(ADMITSMK) | ADMITSMK %in% 0 &
-     is.na(DLPRESMK) | DLPRESMK %in% 0 &
-     is.na(DLVS1SMK) | DLVS1SMK %in% 0 &
-     is.na(SMOKE_20) | SMOKE_20 %in% 0) | 
-    ( DLPRESMK >= 1 &
-     smk %in% 0), 0, 
-    default = 2))] %>%
+    is.na(ADMITSMK) & is.na(DLVS1SMK) & is.na(DLPRESMK) & is.na(SMOKE_20), 2, 
+    default = 0))] %>%
   .[!smoker %in% 2 & !is.na(smoker)] %>%
   .[, `:=` (count = .N), by = list(BrthYear, smoker)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
@@ -892,9 +904,10 @@ reactable(tbl,
 dta1 <- dta[, .(BrthYear,
                ADMITSMK,
                #DLPRESMK,
-               DLVS1SMK
+               DLVS1SMK,
                #SMOKE_20
-               )] %>%
+               CONTCTID)] %>%
+  unique() %>%
   # remove amount unknown
   .[(!is.na(DLVS1SMK) & !DLVS1SMK %in% c(0,88) ) & 
     (!is.na(ADMITSMK) & !ADMITSMK %in% 88) ] %>%
@@ -981,9 +994,10 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 tbl <- dta[, .(BrthYear,
                ADMITSMK,
                #DLPRESMK,
-               DLVS1SMK
+               DLVS1SMK,
                #SMOKE_20
-               )] %>%
+               CONTCTID)] %>%
+  unique() %>%
   # remove amount unknown
   .[(!is.na(DLVS1SMK) & !DLVS1SMK %in% c(0,88) ) & (!is.na(ADMITSMK) & !ADMITSMK %in% 88) ] %>%
   .[, `:=` (dif = ADMITSMK - DLVS1SMK)] %>%
@@ -1061,8 +1075,9 @@ reactable(tbl,
 ```{r tbl37}
 
 tbl1 <-  dta[, .(BrthYear,
-               DLPRESMK
-               )] %>%
+               DLPRESMK,
+               CONTCTID)] %>%
+  unique() %>%
   janitor::tabyl(BrthYear, DLPRESMK, show_na = TRUE, show_missing_levels = TRUE) %>%
   janitor::adorn_percentages("row") %>%
   janitor::adorn_pct_formatting(digits = 1) %>%
@@ -1164,10 +1179,12 @@ reactable(tbl,
 
 ## Cannabis use recorded during pregnancy by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-38}
 
-```{r plot38, fig.cap= paste('Reduction in amount smoked among women who smoked at their first prenatal visit by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+```{r plot38, fig.cap= paste('Cannabis use recorded during pregnancy by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
-               R005_00900)] %>%
+               R005_00900,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (marij = fcase(
     R005_00900 >= 1, 1,
     default = 0
@@ -1186,10 +1203,10 @@ dta1 <- dta1[, `:=` (marij = factor(marij,
 
 ## getting color for plotting
 
-pal <- c(#"No" = "#1b9e77",
+pal <- c("No" = "#1b9e77",
          "Cannabis" = "#d95f02")
 
-plot <- ggplot(data = dta1[!marij %in% "No"],
+plot <- ggplot(data = dta1[!tolower(marij) %in% "no"],
                aes(x = BrthYear,
                    y = rate,
                    group = marij,
@@ -1246,7 +1263,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 ```{r tbl38}
 tbl <- dta[, .(BrthYear,
-               R005_00900)] %>%
+               R005_00900,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (marij = fcase(
     R005_00900 >= 1, 1,
     default = 0
@@ -1326,7 +1345,9 @@ dta1 <- dta[, .(BrthYear,
                R004_00720,
                R004_00730,
                R005_01000,
-               R067_01300)] %>%
+               R067_01300,
+               CONTCTID)] %>%
+  unique() %>%
   .[, oat := rowSums(.SD, na.rm = TRUE), .SDcols = c("R004_00700", "R004_00710", "R004_00720", "R004_00730", "R005_01000", "R067_01300")] %>%
   .[, `:=` (oat = fcase(
     oat >= 1, 1,
@@ -1411,7 +1432,9 @@ tbl <- dta[, .(BrthYear,
                R004_00720,
                R004_00730,
                R005_01000,
-               R067_01300)] %>%
+               R067_01300,
+               CONTCTID)] %>%
+  unique() %>%
   .[, oat := rowSums(.SD, na.rm = TRUE), .SDcols = c("R004_00700", "R004_00710", "R004_00720", "R004_00730", "R005_01000", "R067_01300")] %>%
   .[, `:=` (oat = fcase(
     oat >= 1, 1,
@@ -1487,7 +1510,9 @@ reactable(tbl,
 ```{r plot310, fig.cap= paste('Pre-pregnancy body mass index by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
-               PrePBMI)] %>%
+               PrePBMI,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (bmipp = fcase(
     PrePBMI < 18.5, 1,
     18 <= PrePBMI & PrePBMI < 25, 2,
@@ -1575,7 +1600,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 ```{r tbl310}
 tbl <- dta[, .(BrthYear,
-               PrePBMI)] %>%
+               PrePBMI,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (bmipp = fcase(
     PrePBMI < 18.5, 1,
     18 <= PrePBMI & PrePBMI < 25, 2,
@@ -1657,7 +1684,9 @@ reactable(tbl,
 ```{r plot311, fig.cap= paste('Pre-pregnancy obesity class by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
-               PrePBMI)] %>%
+               PrePBMI,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (bmipp = fcase(
     PrePBMI < 18.5, 1,
     18 <= PrePBMI & PrePBMI < 25, 2,
@@ -1746,7 +1775,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 ```{r tbl311}
 tbl <- dta[, .(BrthYear,
-               PrePBMI)] %>%
+               PrePBMI,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (bmipp = fcase(
     PrePBMI < 18.5, 1,
     18 <= PrePBMI & PrePBMI < 25, 2,
@@ -1831,8 +1862,9 @@ dta1 <- dta[, .(BrthYear,
                 PrePBMI,
                 DLWeight,
                 DLPrePWt,
-                GA_BEST
-               )] %>%
+                GA_BEST,
+               CONTCTID)] %>%
+  unique() %>%
   .[,`:=` (gwg = 2+(27*(DLWeight - DLPrePWt-2)/(GA_BEST - 13)))] %>%
   # filter singleton deliveries
   .[DLNUMFET %in% 1] %>%
@@ -1939,8 +1971,9 @@ tbl <- dta[, .(BrthYear,
                 PrePBMI,
                 DLWeight,
                 DLPrePWt,
-                GA_BEST
-               )] %>%
+                GA_BEST,
+               CONTCTID)] %>%
+  unique() %>%
   .[,`:=` (gwg = 2+(27*(DLWeight - DLPrePWt-2)/(GA_BEST - 13)))] %>%
   # filter singleton deliveries
   .[DLNUMFET %in% 1] %>%
@@ -2036,30 +2069,31 @@ reactable(tbl,
 #                                    "Note: Gestational weight gain according to recommendations made by Health Canada. See section \\\\ref{section-313} for the amounts that are recommended according to pre-pregnancy BMI category"), escape = FALSE)
 ```
 
-## Gestational weight gain according to recommendations by pre-pregnancy body mass index and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-313}
+## Gestational weight gain by pre-pregnancy body mass index and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-313}
 
-```{r plot313, fig.cap= paste('Gestational weight gain according to recommendations by pre-pregnancy body mass index and year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+```{r plot313, fig.cap= paste('Gestational weight gain by pre-pregnancy body mass index and year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 dta1 <- dta[, .(BrthYear,
                 DLNUMFET,
                 PrePBMI,
                 DLWeight,
                 DLPrePWt,
-                GA_BEST
-               )] %>%
+                GA_BEST,
+               CONTCTID)] %>%
+  unique() %>%
   .[,`:=` (gwg = 2+(27*(DLWeight - DLPrePWt-2)/(GA_BEST - 13)))] %>%
   # filter singleton deliveries
   .[DLNUMFET %in% 1] %>%
   # iom = institute of medicine
   .[, `:=` (iom = fcase(
     # BMI 1
-    PrePBMI < 18.5 & gwg < 12, -1,
-    PrePBMI < 18.5 & between(gwg, 12, 18) , 0,
+    PrePBMI < 18.5 & gwg < 12.5, -1,
+    PrePBMI < 18.5 & between(gwg, 12.5, 18) , 0,
     PrePBMI < 18.5 & gwg > 18 , 1,
     # BMI II
-    18 <= PrePBMI & PrePBMI < 25 & gwg < 11.5, -1,
-    18 <= PrePBMI & PrePBMI < 25 & between(gwg, 11.5, 16), 0,
-    18 <= PrePBMI & PrePBMI < 25 & gwg > 16, 1,
+    18.5 <= PrePBMI & PrePBMI < 25 & gwg < 11.5, -1,
+    18.5 <= PrePBMI & PrePBMI < 25 & between(gwg, 11.5, 16), 0,
+    18.5 <= PrePBMI & PrePBMI < 25 & gwg > 16, 1,
     # BMI III
     25 <= PrePBMI & PrePBMI < 30 & gwg < 7, -1,
     25 <= PrePBMI & PrePBMI < 30 & between(gwg, 7, 11.5), 0,
@@ -2174,21 +2208,22 @@ tbl <- dta[, .(BrthYear,
                 PrePBMI,
                 DLWeight,
                 DLPrePWt,
-                GA_BEST
-               )] %>%
+                GA_BEST,
+               CONTCTID)] %>%
+  unique() %>%
   .[,`:=` (gwg = 2+(27*(DLWeight - DLPrePWt-2)/(GA_BEST - 13)))] %>%
   # filter singleton deliveries
   .[DLNUMFET %in% 1] %>%
   # iom = institute of medicine
   .[, `:=` (iom = fcase(
     # BMI 1
-    PrePBMI < 18.5 & gwg < 12, -1,
-    PrePBMI < 18.5 & between(gwg, 12, 18) , 0,
+    PrePBMI < 18.5 & gwg < 12.5, -1,
+    PrePBMI < 18.5 & between(gwg, 12.5, 18) , 0,
     PrePBMI < 18.5 & gwg > 18 , 1,
     # BMI II
-    18 <= PrePBMI & PrePBMI < 25 & gwg < 11.5, -1,
-    18 <= PrePBMI & PrePBMI < 25 & between(gwg, 11.5, 16), 0,
-    18 <= PrePBMI & PrePBMI < 25 & gwg > 16, 1,
+    18.5 <= PrePBMI & PrePBMI < 25 & gwg < 11.5, -1,
+    18.5 <= PrePBMI & PrePBMI < 25 & between(gwg, 11.5, 16), 0,
+    18.5 <= PrePBMI & PrePBMI < 25 & gwg > 16, 1,
     # BMI III
     25 <= PrePBMI & PrePBMI < 30 & gwg < 7, -1,
     25 <= PrePBMI & PrePBMI < 30 & between(gwg, 7, 11.5), 0,
@@ -2368,8 +2403,9 @@ reactable(tbl,
 ```{r tbl314}
 
 tbl1 <-  dta[, .(BrthYear,
-               DLPrePWt
-               )] %>%
+               DLPrePWt,
+               CONTCTID)] %>%
+  unique() %>%
   janitor::tabyl(BrthYear, DLPrePWt, show_na = TRUE, show_missing_levels = TRUE) %>%
   janitor::adorn_percentages("row") %>%
   janitor::adorn_pct_formatting(digits = 1) %>%
@@ -2394,9 +2430,9 @@ tbl2 <-  dta[, .(BrthYear,
   data.table::dcast(variable ~ BrthYear)
 
 tbl3 <-  dta[, .(BrthYear,
-                DLHEIGHT
+                 Old_Height
                )] %>%
-  janitor::tabyl(BrthYear, DLHEIGHT, show_na = TRUE, show_missing_levels = TRUE) %>%
+  janitor::tabyl(BrthYear, Old_Height, show_na = TRUE, show_missing_levels = TRUE) %>%
   janitor::adorn_percentages("row") %>%
   janitor::adorn_pct_formatting(digits = 1) %>%
   dplyr::select(BrthYear, NA_) %>%
@@ -2450,37 +2486,38 @@ reactable(tbl,
 
 ## Interpregnancy weight change by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-315}
 
-```{r plot315, fig.cap= paste('Interpregnancy weight change by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
+```{r plot315,echo=FALSE, fig.cap= paste('Interpregnancy weight change by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
 temp <- readr::read_csv("data/NSAtleePD.csv") %>%
-  setDT()
+  setDT() %>%
+  .[BrthYear >= 2005 &
+    ProvNo %in% 12 &
+    (BIRTHWT >= 500 | GA_BEST >= 20), ]
 
 dta1 <- temp[, .(BrthYear,
                 MOTHERID,
                 BTBRTHOR,
                 DLPrePWt,
-                BTBrthDT
-                # DLPARA,
-                # MODEDEL,
-                # GA_BEST
-                )] %>%
+                DLWeight,
+                BTBrthDT,
+                DLPARA,
+                MODEDEL,
+                GA_BEST,
+                Conception_Date)] %>%
+  unique() %>%
   .[BTBRTHOR %in% 1 &
       !is.na(DLPrePWt),] %>%
-  .[, `:=` (BTBrthDT = as.POSIXct(BTBrthDT, format = "%m/%d/%Y %H:%M"))] %>%
+  .[, `:=` (BTBrthDT = as.Date(BTBrthDT))] %>%
   .[order(MOTHERID,BTBrthDT),] %>%
-  # *7 turns weeks in days, 
-  # - 14 turns LMP to conception
-  # then turn to seconds to match BTBrthDT
-  .[, `:=` (#conception_date = BTBrthDT-(((GA_BEST * 7)-14)*24*60*60),
-             lag_pwt = c(NA, DLPrePWt[-.N])
-  #           lag_date = as.POSIXct(c(NA, BTBrthDT[-.N]), origin = "1970-01-01"),
-  #           lag_para = c(NA, DLPARA[-.N]),
-  #           mode_prev = c(NA, MODEDEL[-.N])
+  .[, `:=` (lag_pwt = shift(DLPrePWt),
+            lag_date = shift(BTBrthDT),
+            lag_para = shift(DLPARA),
+            mode_prev = shift(MODEDEL)
   ), by = .(MOTHERID)] %>%
-  .[, `:=` (ipwc = DLPrePWt-lag_pwt
-            # ipdays = as.numeric(difftime(conception_date, lag_date, units = "days")),
-            # ipparity = DLPARA - lag_para
-            )] %>%
+  .[, `:=` (ipwc = DLPrePWt-lag_pwt,
+            ipdays = as.numeric(difftime(Conception_Date, lag_date, units = "days")),
+             ipparity = DLPARA - lag_para)] %>%
+  .[!ipparity %in% 1 | ipdays < 90, ipwc := NA] %>%
     # iom = institute of medicine
   .[, `:=` (ipwc_cat = fcase(
     # ipwc
@@ -2491,7 +2528,7 @@ dta1 <- temp[, .(BrthYear,
     default = 5
     ))] %>%
   # remove missing
-  .[!ipwc_cat %in% 5] %>%
+  .[!ipwc_cat %in% 5 ] %>%
   .[, `:=` (count = .N), by = list(BrthYear, ipwc_cat)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = count/total)] %>%
@@ -2571,36 +2608,37 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
                  showlegend = TRUE)
 ```
 
-```{r tbl315}
+```{r tbl315, echo=FALSE, message=FALSE, warning=FALSE}
 temp <- readr::read_csv("data/NSAtleePD.csv") %>%
-  setDT() 
+  setDT() %>%
+  .[BrthYear >= 2005 &
+    ProvNo %in% 12 &
+    (BIRTHWT >= 500 | GA_BEST >= 20), ]
 
 tbl <- temp[, .(BrthYear,
                 MOTHERID,
                 BTBRTHOR,
                 DLPrePWt,
-                BTBrthDT
-                # DLPARA,
-                # MODEDEL,
-                # GA_BEST
-                )] %>%
+                DLWeight,
+                BTBrthDT,
+                DLPARA,
+                MODEDEL,
+                GA_BEST,
+                Conception_Date)] %>%
+  unique() %>%
   .[BTBRTHOR %in% 1 &
       !is.na(DLPrePWt),] %>%
-  .[, `:=` (BTBrthDT = as.POSIXct(BTBrthDT, format = "%m/%d/%Y %H:%M"))] %>%
+  .[, `:=` (BTBrthDT = as.Date(BTBrthDT))] %>%
   .[order(MOTHERID,BTBrthDT),] %>%
-  # *7 turns weeks in days, 
-  # - 14 turns LMP to conception
-  # then turn to seconds to match BTBrthDT
-  .[, `:=` (#conception_date = BTBrthDT-(((GA_BEST * 7)-14)*24*60*60),
-             lag_pwt = c(NA, DLPrePWt[-.N])
-  #           lag_date = as.POSIXct(c(NA, BTBrthDT[-.N]), origin = "1970-01-01"),
-  #           lag_para = c(NA, DLPARA[-.N]),
-  #           mode_prev = c(NA, MODEDEL[-.N])
+  .[, `:=` (lag_pwt = shift(DLPrePWt),
+            lag_date = shift(BTBrthDT),
+            lag_para = shift(DLPARA),
+            mode_prev = shift(MODEDEL)
   ), by = .(MOTHERID)] %>%
-  .[, `:=` (ipwc = DLPrePWt-lag_pwt
-            # ipdays = as.numeric(difftime(conception_date, lag_date, units = "days")),
-            # ipparity = DLPARA - lag_para
-            )] %>%
+  .[, `:=` (ipwc = DLPrePWt-lag_pwt,
+            ipdays = as.numeric(difftime(Conception_Date, lag_date, units = "days")),
+             ipparity = DLPARA - lag_para)] %>%
+  .[!ipparity %in% 1 | ipdays < 90, ipwc := NA] %>%
     # iom = institute of medicine
   .[, `:=` (ipwc_cat = fcase(
     # ipwc
@@ -2611,7 +2649,7 @@ tbl <- temp[, .(BrthYear,
     default = 5
     ))] %>%
   # remove missing
-  .[!ipwc_cat %in% 5] %>%
+  .[!ipwc_cat %in% 5 ] %>%
   .[, `:=` (count = .N), by = list(BrthYear, ipwc_cat)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = 100*count/total)] %>%
@@ -2619,7 +2657,7 @@ tbl <- temp[, .(BrthYear,
   melt(measure.vars = c("rate", "total", "count")) %>%
   .[!tolower(variable) %in% "count"] %>%
   .[, `:=` (ipwc_cat = fifelse(tolower(variable) %in% "total",
-                               0, ipwc_cat))] %>%
+                               -1, ipwc_cat))] %>%
   .[, .(BrthYear, ipwc_cat, value)] %>%
   unique() %>%
   dcast(ipwc_cat ~ BrthYear, value.var = "value")
@@ -2712,8 +2750,9 @@ dta1 <- dta[, .(BrthYear,
                  MO244, MO24401, MO24404, MO24409,
                  MO248, MO24801, MO24802, MO24803, MO24804,
                  MO249,
-                 IP700
-                )] %>%
+                 IP700,
+               CONTCTID)] %>%
+  unique() %>%
   .[, idx_244 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2440.", names(dta)))]] %>%
   .[, idx_245 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2450.", names(dta)))]] %>%
   .[, idx_246 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2460.", names(dta)))]] %>%
@@ -2847,8 +2886,9 @@ tbl <- dta[, .(BrthYear,
                  MO244, MO24401, MO24404, MO24409,
                  MO248, MO24801, MO24802, MO24803, MO24804,
                  MO249,
-                 IP700
-                )] %>%
+                 IP700,
+               CONTCTID)] %>%
+  unique() %>%
   .[, idx_244 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2440.", names(dta)))]] %>%
   .[, idx_245 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2450.", names(dta)))]] %>%
   .[, idx_246 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2460.", names(dta)))]] %>%
@@ -2964,8 +3004,9 @@ dta1 <- dta[, .(BrthYear,
                 MO10,
                 MO11,
                 MI10, MI11, MI12, MI13, MI15,
-                MCHTD
-                )] %>%
+                MCHTD,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (prehtn = fcase(
     R014_00700 >=1 | R014_00800 >=1 | 
     MO10 >=1 | MO11 >=1 |
@@ -3051,8 +3092,9 @@ tbl <- dta[, .(BrthYear,
                 R014_00800,
                 MO10,
                 MO11,
-                MI10, MI11, MI12, MI13
-                )] %>%
+                MI10, MI11, MI12, MI13,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (prehtn = fcase(
     R014_00700 >=1 | R014_00800 >=1 | 
     MO10 >=1 | MO11 >=1 |
@@ -3126,7 +3168,7 @@ reactable(tbl,
 # kableExtra::add_footnote(label = c("Note: Maternal history of hypertensive disease prior to the current pregnancy or prior to 20 weeks gestation in the current pregnancy."))
 ```
 
-##  Number of pre-pregnancy risk factors by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-318}
+## Number of pre-pregnancy risk factors by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-318}
 
 ```{r plot318, fig.cap= paste('Number of pre-pregnancy risk factors by year, Nova Scotia,', paste0(params$year1,"-",params$year2))}
 
@@ -3163,6 +3205,13 @@ dta1 <- dta[, .(BrthYear,
                 MO10,
                 MO11,
                 MI10, MI11, MI12, MI13)] %>%
+  unique() %>%
+  .[!is.na(PrePBMI) &
+    !is.na(DLPRESMK) &
+    !is.na(MO245) &
+    !is.na(MO246) &
+    !is.na(MO247) &
+    !is.na(MO248)] %>%
   .[, idx_244 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2440.", names(dta)))]] %>%
   .[, idx_245 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2450.", names(dta)))]] %>%
   .[, idx_246 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2460.", names(dta)))]] %>%
@@ -3218,6 +3267,10 @@ dta1 <- dta[, .(BrthYear,
      DLPRESMK >= 1, 1,
      default = 0
    ))] %>%
+  .[,`:=` (gestdiab = fifelse(!gestdiab %in% 1 & 
+                                !prexdiab %in% 1, 0, gestdiab),
+           prexdiab = fifelse(gestdiab %in% 1 & 
+                                prexdiab %in% 1, 1, prexdiab))] %>%
   .[, idx := rowSums(.SD, na.rm = TRUE), .SDcols = c("prexdiab", "prehtn", "ama", "ob", "presmk")] %>%
   .[,`:=` (pprf = fcase(
     idx %in% 0, 1,
@@ -3335,12 +3388,21 @@ tbl <- dta[, .(BrthYear,
                 R014_00800,
                 MO10,
                 MO11,
-                MI10, MI11, MI12, MI13)] %>%
+                MI10, MI11, MI12, MI13, MI15,
+               MOTHERID)] %>%
+  unique() %>%
+  .[!is.na(PrePBMI) &
+    !is.na(DLPRESMK) &
+    !is.na(MO245) &
+    !is.na(MO246) &
+    !is.na(MO247) &
+    !is.na(MO248)] %>%
   .[, idx_244 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2440.", names(dta)))]] %>%
   .[, idx_245 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2450.", names(dta)))]] %>%
   .[, idx_246 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2460.", names(dta)))]] %>%
   .[, idx_247 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2470.", names(dta)))]] %>%
   .[, idx_248 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2480.", names(dta)))]] %>%
+   # .[, idx_249 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2490.", names(dta)))]] %>%
   .[, `:=` (predm_nsapd = fcase(
     R014_00900 >=1 | R014_01000 >=1 | 
     R014_01100 >=1 | R014_01200 >=1, 1,
@@ -3352,7 +3414,7 @@ tbl <- dta[, .(BrthYear,
     MO246 >=1 | idx_246 >=1 |
     MO247 >=1 | idx_247 >=1 |
     ME10 >=1 | ME11 >=1 | ME13 >=1 | ME14 >=1 |
-    MH360 >=1 | MG632 >=1 | IP701  >=1, 1,
+    MH360 >=1 | MG632 >=1 | IP701 >=1, 1,
    default = 0
     ),
    gdm_nsapd = fcase(
@@ -3362,21 +3424,18 @@ tbl <- dta[, .(BrthYear,
    gdm_icd = fcase(
     MO244 >=1 | MO249 >=1 | MO248 >=1 |
     idx_244 >=1 | idx_248 >=1 |
-    IP700  >=1, 1,
+    IP700 >=1, 1,
    default = 0
     ))] %>%
   .[, `:=` (prexdiab = fcase(
     predm_nsapd %in% 1 | predm_icd %in% 1, 1,
-   default = 0
+   !(predm_nsapd %in% 1 | predm_icd %in% 1), 0,
+   default, -1
     ),
-   gestdiab = fcase(
-     gdm_nsapd %in% 1 | gdm_icd %in% 1, 1,
-     default = 0
-   ),
    prehtn = fcase(
     R014_00700 >=1 | R014_00800 >=1 | 
     MO10 >=1 | MO11 >=1 |
-    MI10 >=1 | MI11 >=1 | MI12 >=1 | MI13 >=1 , 1,
+    MI10 >=1 | MI11 >=1 | MI12 >=1 | MI13 >=1 | MI15 >=1, 1,
    default = 0
     ),
    ama = fcase(
@@ -3391,20 +3450,29 @@ tbl <- dta[, .(BrthYear,
      DLPRESMK >= 1, 1,
      default = 0
    ))] %>%
+  .[, `:=` (gestdiab = fcase(
+     gdm_nsapd %in% 1 | gdm_icd %in% 1, 1,
+     !(gdm_nsapd %in% 1 | gdm_icd %in% 1) & !prexdiab %in% 1, 0,
+     default = -1
+   ))] %>%
+  .[,`:=` (prexdiab = fifelse(gestdiab %in% 1 &
+                                prexdiab %in% 1, 1, prexdiab))] %>%
   .[, idx := rowSums(.SD, na.rm = TRUE), .SDcols = c("prexdiab", "prehtn", "ama", "ob", "presmk")] %>%
   .[,`:=` (pprf = fcase(
     idx %in% 0, 1,
     idx %in% 1, 2,
     idx %in% 2, 3,
-    idx >= 3, 4
+    idx >= 3, 4,
+    default = 5
   ))] %>%
+  .[!idx %in% 5] %>%
   .[, `:=` (count = .N), by = list(BrthYear, pprf)] %>%
   .[, `:=` (total = .N), by = list(BrthYear)] %>%
   .[, `:=` (rate = 100*count/total)] %>%
   melt(measure.vars = c("rate", "total", "count")) %>%
   .[!tolower(variable) %in% "count"] %>%
   .[, `:=` (pprf = fifelse(tolower(variable) %in% "total",
-                               0, pprf))] %>%
+                               -1, pprf))] %>%
   .[, .(BrthYear, pprf, value)] %>%
   unique() %>%
   dcast(pprf ~ BrthYear, value.var = "value")
@@ -3476,7 +3544,9 @@ reactable(tbl,
 
 dta1 <- dta[, .(BrthYear,
                 R004_00200,
-                R014_01300)] %>%
+                R014_01300,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (depanx = fcase(
     R004_00200 >=1 | R014_01300 >=1, 1,
    default = 0
@@ -3557,7 +3627,9 @@ plotly::ggplotly(plot, tooltip = c("text")) %>%
 
 tbl <- dta[, .(BrthYear,
                 R004_00200,
-                R014_01300)] %>%
+                R014_01300,
+               CONTCTID)] %>%
+  unique() %>%
   .[, `:=` (depanx = fcase(
     R004_00200 >=1 | R014_01300 >=1, 1,
    default = 0

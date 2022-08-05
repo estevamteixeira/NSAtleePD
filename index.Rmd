@@ -9,19 +9,19 @@ date: '`r Sys.Date()`'
 site: bookdown::bookdown_site
 output: bookdown::bs4_book
 documentclass: krantz
-monofont: "Source Code Pro"
-monofontoptions: "Scale=0.7"
+#monofont: "Source Code Pro"
+#monofontoptions: "Scale=0.7"
 biblio-style: apalike
 link-citations: yes
 colorlinks: yes
 graphics: yes
 description: "The data presented in this report are meant to provide a quick reference to the sentinel indicators of perinatal health and care among Nova Scotia residents. We hope this report will assist with the development and monitoring of standards of care and will trigger research questions that can be pursued by researchers and trainees."
 github-repo: "https://github.com/estevamteixeira/NSAtleePD"
-cover-image: "images/Cover-1.png"
+cover-image: "images/Cover2010-19.png"
 url: http://rcp.nshealth.ca/
 ---
 
-```{r setup, include=FALSE, cache=TRUE, cache.extra = tools::md5sum('data/NSAtleePD.csv')}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   echo = FALSE, 
   message = FALSE, 
@@ -57,9 +57,11 @@ is_html = knitr::is_html_output()
 ```{asis index-2, echo=is_html}
 # Welcome {-}
 This is the online home of the *Nova Scotia Atlee Perinatal Database*, a report meant to provide a quick reference to the sentinel indicators of perinatal health and care among Nova Scotia residents.
-<a href="http://rcp.nshealth.ca/publications/nsapd-report-indicators-2010-2019"><img src="images/Cover-1.png" width="250" height="350" alt="The NS Atlee Perinatal Database cover" align="right" style="margin: 0 1em 0 1em" /></a>
+<!--<a  href="http://rcp.nshealth.ca/publications/nsapd-report-indicators-2010-2019"> -->
+<img src="images/Cover2010-19.png" width="250" height="350" alt="The NS Atlee Perinatal Database cover" align="right" style="margin: 0 1em 0 1em" />
+<!-- </a> -->
   
-**Note**: Previous editions of this report can be found on the [RCP](http://rcp.nshealth.ca/publications/nsapd-report-indicators-2010-2019) web site.
+**Note**: A PDF version of this report can be donwloaded on the RCP web site. [(click here)](http://rcp.nshealth.ca/publications/nsapd-report-indicators-2010-2019)
 
 Inspired by the Free and Open Source Software movement ([FOSS](https://en.unesco.org/freeandopensourcesoftware)), the code and prose underlying this report are open, ensuring that the content is reproducible, transparent, and accessible.
 
@@ -71,7 +73,7 @@ Hosting the source code on [GitHub](https://github.com/estevamteixeira/NSAtleePD
 The online version of the report is hosted at [rcp.nshealth.ca/publications](http://rcp.nshealth.ca/publications/nsapd-report-indicators-2010-2019).
 ```
 
-```{r index-2.2, echo=FALSE, eval=is_html, results="asis"}
+```{r index-22, echo=FALSE, eval=is_html, results="asis"}
 if (is_on_ghactions){
     cat(paste0("This version of the book was built on GH Actions on ", Sys.Date(), "."))
 } else {
@@ -79,7 +81,7 @@ if (is_on_ghactions){
 }
 ```
 
-```{asis index 2.3, echo=is_html}
+```{asis index-23, echo=is_html}
 ## Supporting the project {-}
 
 If you find the report useful, please support it by:
@@ -90,13 +92,14 @@ If you find the report useful, please support it by:
 - Asking questions about or making suggestion on the content via [peru@dal.ca](peru@dal.ca).
 ```
 
+
 # Dedication {-}
 
 We would like to honour two neonatologists whom we have lost since our last edition of the Nova Scotia Perinatal Database Report: Drs. Dora A. Stinson and Alexander C. Allen. Both of these physicians worked steadily and tirelessly to improve the health of babies in the province through the clinical care they administered, first at the Grace Maternity Hospital and later at the IWK Health Centre; research; and teaching, mentoring and supporting medical trainees, researchers, and junior faculty members. We will miss them, but will feel their impact forever as we remember their dedication and humour, and do our utmost to build on what they worked so hard to accomplish for the health and well being of Nova Scotians.
 
 **Dr. Dora Stinson, MD, FRCPC, FAAP (1939-2020)** was actively involved in every aspect of neonatal medicine for many years, in research, administration and directly in clinical treatment of children. Dr. Stinson was well known locally and nationally as a skilled physician, a dedicated teacher and mentor, and a valued colleague. She acted as the Neonatal Clinical Advisor for the Reproductive Care Program for several years, and provided thoughtful input on several of the indicators shown herein.
 
-```{r dora, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center', out.width='20%'}
+```{r dora, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, out.width='20%'}
 knitr::include_graphics("images/Dora.png")
 ```
 
