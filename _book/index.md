@@ -5,7 +5,7 @@ params:
   year2: 2019
 subtitle: 'Report of Indicators: 2010-2019'
 author: 'Estevam Teixeira'
-date: '2022-08-05'
+date: '2022-08-08'
 site: bookdown::bookdown_site
 output: bookdown::bs4_book
 documentclass: krantz
@@ -42,7 +42,7 @@ Hosting the source code on [GitHub](https://github.com/estevamteixeira/NSAtleePD
 
 The online version of the report is hosted at [rcp.nshealth.ca/publications](http://rcp.nshealth.ca/publications/nsapd-report-indicators-2010-2019).
 
-This version of the book was built on 2022-08-05.
+This version of the book was built on 2022-08-08.
 
 ## Supporting the project {-}
 
@@ -72,10 +72,10 @@ This Nova Scotia Atlee Perinatal Database Report was developed and prepared by m
 
 **Members of the Perinatal Epidemiology Research Unit Departments of Obstetrics & Gynaecology and Pediatrics**
 
-- Azar Mehrabadi, PhD, Assistant Professor
-- Stefan Kuhle, MD, PhD, Associate Professor
-- Christy Woolcott, PhD, Director, Associate Professor
-- Linda Dodds, PhD, Past Director, Professor
+- [Azar Mehrabadi, PhD, Assistant Professor](https://medicine.dal.ca/departments/department-sites/pediatrics/our-people/our-faculty/azar-mehrabadi.html)
+- [Stefan Kuhle, MD, PhD, Associate Professor](https://medicine.dal.ca/departments/department-sites/pediatrics/our-people/our-faculty/stefan-kuhle.html)
+- [Christy Woolcott, PhD, Director, Associate Professor](https://medicine.dal.ca/departments/department-sites/pediatrics/our-people/our-faculty/christy-woolcott.html)
+- [Linda Dodds, PhD, Past Director, Professor](https://medicine.dal.ca/departments/department-sites/pediatrics/our-people/our-faculty/linda-dodds.html)
 
 # Introduction {-}
 

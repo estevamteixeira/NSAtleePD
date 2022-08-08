@@ -115,10 +115,10 @@ This Nova Scotia Atlee Perinatal Database Report was developed and prepared by m
 
 **Members of the Perinatal Epidemiology Research Unit Departments of Obstetrics & Gynaecology and Pediatrics**
 
-- Azar Mehrabadi, PhD, Assistant Professor
-- Stefan Kuhle, MD, PhD, Associate Professor
-- Christy Woolcott, PhD, Director, Associate Professor
-- Linda Dodds, PhD, Past Director, Professor
+- [Azar Mehrabadi, PhD, Assistant Professor](https://medicine.dal.ca/departments/department-sites/pediatrics/our-people/our-faculty/azar-mehrabadi.html)
+- [Stefan Kuhle, MD, PhD, Associate Professor](https://medicine.dal.ca/departments/department-sites/pediatrics/our-people/our-faculty/stefan-kuhle.html)
+- [Christy Woolcott, PhD, Director, Associate Professor](https://medicine.dal.ca/departments/department-sites/pediatrics/our-people/our-faculty/christy-woolcott.html)
+- [Linda Dodds, PhD, Past Director, Professor](https://medicine.dal.ca/departments/department-sites/pediatrics/our-people/our-faculty/linda-dodds.html)
 
 # Introduction {-}
 
