@@ -18,3 +18,5 @@ bookdown::bs4_book:
     branch: main
   template: style/bs4_book.html
   css: style/style.css
+  includes:
+    before_body: style/big-image.html

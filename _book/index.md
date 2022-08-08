@@ -77,8 +77,6 @@ This Nova Scotia Atlee Perinatal Database Report was developed and prepared by m
 - Christy Woolcott, PhD, Director, Associate Professor
 - Linda Dodds, PhD, Past Director, Professor
 
-<img src="images/3_logos_2021-1.png" width="90%"  style="display: block; margin: auto;" />
-
 # Introduction {-}
 
 ## Purpose of Report {-}

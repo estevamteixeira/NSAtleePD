@@ -1466,12 +1466,16 @@ dta1 <- dta[, .(BrthYear,
     default = 0
   ))] %>%
   #unique() %>%
-  # remove missing
-  .[!robson %in% 0 |
-      !cs %in% 0] %>%
+  
   .[, `:=` (count = .N), by = list(BrthYear, robson, cs)] %>%
   .[, `:=` (total = .N), by = list(BrthYear, robson)] %>%
-  .[, `:=` (rate = 100*count/total)]
+  .[, `:=` (rate = count/total)] %>%
+  # remove missing
+  .[!robson %in% 0 &
+      !cs %in% 0] %>%
+  .[,.(BrthYear, rate, total, robson, cs)] %>%
+  unique()
+
 
 # age category using UNICODE codes
 dta1 <- dta1[, `:=` (robsonnam = fcase(
