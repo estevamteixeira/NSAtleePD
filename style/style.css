@@ -1,0 +1,185 @@
+div.rmdnote, div.rstudio-tip, div.rmdwarning {
+  padding: 1em;
+  margin: 1em 0;
+  padding-left: 100px;
+  background-size: 70px;
+  background-repeat: no-repeat;
+  background-position: 15px 1.5em;
+  min-height: 120px;
+  background-color: #FFFFFF;
+  max-width: 100%;
+  font-size: 0.85em;
+  letter-spacing: 1pt;
+}
+
+div.rmdnote {
+  background-image: url("../images/globe.png");
+}
+
+div.sourceCode {
+      font-size: 1.0rem;
+}
+
+/*---------------Hero Image------------------*/
+
+/* next 3 rules are for setting large image at top of each page and pushing down the book content to appear beneath the image */
+
+.hero-image-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 150px;
+  /*background-image: url("images/hex_all_transparent.png");*/
+  background-color: #FFFFFF/*#EBF3F2;*/
+  /* Add margin-bottom to create space below the hero image */
+  /*margin-bottom: 20px;*/
+}
+
+.hero-image {
+  width: 100%;
+  /*height: 120px; keep old measure for RCP_IWK_PHAC_Logo_Transparent.png*/
+  height: 150px;
+  object-fit: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% auto;
+  position: relative;
+}
+
+.page-inner {
+  padding-top: 20% !important;
+}
+
+.section h1 {
+  padding-top: 3.5em !important; /*adding so much padding because theme adds a margin-top: -65px by default */
+  /*margin-bottom: 1em;*/
+},
+.section h2, 
+.section h3, 
+.section h4, 
+.section h5 
+
+/*------------ TOC --------------*/
+
+.book .book-summary {
+  background: #FFFFFF;
+  border-right: none;
+}
+
+
+/* all TOC list items, basically */
+.book .book-summary ul.summary li a, 
+.book .book-summary ul.summary li span {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.summary a:hover {
+  color: #00706E !important;
+} 
+
+/*active TOC links*/
+.book .book-summary ul.summary li.active>a { 
+  color: #5C9895 !important;
+  border-left: solid 4px;
+  border-color: #5C9895;
+  padding-left: 11px !important;
+} 
+
+/* for TOC part names */
+li.appendix span, li.part span { 
+  margin-top: 1em;
+  color: #00706E;
+  opacity: .9 !important;
+  text-transform: uppercase;
+}
+
+/* grabs first .chapter immediately after .part...but only those ch without numbers */
+.part + li[data-level=""] { 
+ text-transform: uppercase;
+}
+
+/*-----Body Links-------*/
+
+.book .book-body .page-wrapper .page-inner section.normal a {
+  color: #5C9895;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal a:hover {
+color: #00706E; /* darker color when hovering */
+text-decoration: none;
+}
+
+
+/*----- Data Table -----*/
+
+.datatables > .dataTables_wrapper {
+  overflow: auto;
+
+  > .dataTables_filter {
+    position: absolute;
+    top: 12px;
+    right: 25px;
+
+    > label {
+      .form-control {
+        border-radius: 4px;
+        font-size: 14px;
+
+        &:focus {
+          border-color: #EBF3F2;
+          box-shadow: 0 0 8px rgba($color: #EBF3F2, $alpha: 0.3);
+        }
+      }
+    }
+  }
+
+  > .dataTables_paginate {
+    bottom: 0px;
+    position: relative;
+    right: 0px;
+
+    > ul.pagination {
+      > li.paginate_button {
+        &.active {
+          > a {
+            background-color: #EBF3F2;
+          }
+        }
+      }
+    }
+  }
+
+  > .table.dataTable {
+    > thead, tfoot {
+      > tr > th {
+        white-space: nowrap;
+      }
+    }
+    
+    > tbody {
+      > tr {
+        > td {
+          border: none;
+          transition: background-color 0.3s;
+        }
+
+        &.odd:hover > td, &.even:hover > td {
+          background-color: rgba($color: #EBF3F2, $alpha: 0.5);
+        }
+
+        &.odd > td {
+          background-color: rgba($color: #E3E7E9, $alpha: 0.5);
+        }
+
+        &.active > td, &.active:hover > td {
+          background-color: #EBF3F2;
+        }
+      }
+    }
+  }
+}
+

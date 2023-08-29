@@ -1,0 +1,437 @@
+---
+params:
+  year1: 2011
+  year2: 2020
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  message = FALSE, 
+  warning = FALSE,
+  fig.pos = "H", 
+  out.extra = "",
+  out.width = '100%',
+  fig.align = 'center',
+  eval.after = "fig.cap",
+  dev = "CairoPDF")
+
+pckgs <- c(
+  'tidyverse', 'knitr', 'scales','janitor',
+  'kableExtra','data.table','reactablefmtr',
+  'forcats','lubridate','anytime','reactable',
+  'htmltools', 'plotly','purrr','Cairo')
+# for (pp in `pckgs`) { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(pckgs, character.only = TRUE)
+## data input
+
+# add data
+dta <- arrow::read_parquet("data/NSAtleePD.parquet") %>%
+  collect() %>% 
+  setDT() %>%
+  .[data.table::between(BrthYear, params$year1, params$year2) &
+    ProvNo %in% 12 &
+    (BIRTHWT >= 500 | GA_BEST >= 20), ]
+
+source("utilities/plotLine.R")
+
+csvDownloadButton <- function(tableId, label = "Download (.csv)", filename = paste0(tableId,".csv")) {
+  htmltools::tags$button(
+    tagList(
+      fontawesome::fa("download"), label
+    ),
+    onclick = sprintf("Reactable.downloadDataCSV('%s', '%s')", tableId, filename),
+    style = "
+    background-color: #EBF3F2;
+    color: #00706E;
+    font-size: 14px;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;"
+  )
+}
+```
+
+# Perinatal and Infant Mortality {#section-2}
+
+## Perinatal mortality by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-21}
+
+```{r plot21, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- unique(dta[, .(BrthYear,
+               BTOUTCOM,
+               DIFINOUT,
+               BTSEX)] %>%
+  #.[!tolower(BTSEX) %in% "a"] %>%
+  .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & !is.na(BTOUTCOM),
+                              BTOUTCOM,
+                              DIFINOUT))] %>%
+  .[, `:=` (perimort = fcase(
+    tolower(babyout) %in% c("lvd","lnd","ind"), 0,
+    tolower(babyout) %in% c("ftd"), 1, 
+    tolower(babyout) %in% c("end"), 2, 
+    default = -1
+    ))] %>%
+  .[, `:=` (perimortT = .N), by = list(BrthYear, perimort)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[!perimort %in% -1] %>%
+  .[, `:=` (rate = 1000*perimortT/dlv)] %>%
+  .[!perimort %in% 0, .(BrthYear, dlv, perimort, perimortT, rate)])
+
+temp <- unique(dta1) %>%
+  .[,`:=` (perimort = 3,
+           perimortT = sum(perimortT),
+           rate = sum(rate)), by = list(BrthYear)] 
+  
+dta1 <- unique(rbind(dta1, temp))[,
+            `:=` (
+              cat = factor(
+                perimort,
+                levels = c(1,2,3),
+                labels = c(
+                  "Stillbirth",
+                  "Early neonatal mortality",
+                  "Total perinatal mortality")))][,
+            .(BrthYear, rate, cat, dlv)][
+              order(BrthYear)
+            ]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1, "rate", ylab = "Rate per 1,000 births", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1, "rate", ylab = "Rate per 1,000 births", yacc = 1)
+    }
+```
+
+```{r tbl21}
+tbl <- unique(dta[, .(BrthYear,
+               BTOUTCOM,
+               DIFINOUT,
+               BTSEX)] %>%
+  #.[!tolower(BTSEX) %in% "a"] %>%
+  .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & !is.na(BTOUTCOM),
+                              BTOUTCOM,
+                              DIFINOUT))] %>%
+  .[, `:=` (perimort = fcase(
+    tolower(babyout) %in% c("lvd","lnd","ind"), 0,
+    tolower(babyout) %in% c("ftd"), 1, 
+    tolower(babyout) %in% c("end"), 2, 
+    default = -1
+    ))] %>%
+  .[, `:=` (perimortT = .N), by = list(BrthYear, perimort)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[!perimort %in% -1] %>%
+  .[, `:=` (rate = 1000*perimortT/dlv)] %>%
+  .[!perimort %in% 0, .(BrthYear, dlv, perimort, perimortT, rate)])
+
+temp <- unique(tbl) %>%
+  .[,`:=` (perimort = 3,
+           perimortT = sum(perimortT),
+           rate = sum(rate)), by = list(BrthYear)] 
+  
+tbl <- unique(rbind(tbl, temp)) %>%
+  melt(measure.vars = c("dlv", "perimortT", "rate")) %>%
+  .[!tolower(variable) %in% c("perimortt")] %>%
+  .[, `:=` (perimort = factor(fifelse(tolower(variable) %in% "dlv",
+                               "# births", as.character(perimort))))] %>%
+  .[, .(BrthYear, perimort, value)] %>%
+  unique() %>%
+  dcast(perimort ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f", "%1.1f", "%1.1f")))
+
+
+#names(tbl) <- coln
+tbl[,1] <- factor(tbl[,1],labels = c("Total births","Stillbirth","Early neonatal mortality", "Total perinatal mortality"))
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Rate per 1,000 births", rep("", ncol(tbl)-1))))
+names(temp) <- names(tbl)
+
+tbl <- rbind(tbl[1,], temp, tbl[-1,])
+
+   ## using datatable package for table appearance
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-21"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-21",
+          style = list(borderBottom = "#DDDDDD",
+                       headerStyle = list(borderColor = "#DDDDDD")),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55),
+          rowStyle = function(index){
+            if (index %in% c(2)) list(
+              color = "black",
+              backgroundColor = "#E1E1E1",
+              fontWeight = "bold", 
+              align = "center",
+              borderBottom = "#DDDDDD")
+          },
+          columns = list(
+            perimort = colDef(name = "",
+                         align = "left",
+                         width = 130)
+          )
+) %>%
+  reactablefmtr::add_source("\u1d43 Sex could not be determined in some infants and these infants are not included in some categories.",
+                          font_size = 12,
+                          #font_weight = "bold"
+                          ) %>%
+reactablefmtr::add_source("Note: Stillbirth refers to the complete expulsion or extraction from its mother after at least 20 weeks pregnancy, or after attaining a weight of 500 g or more, of a fetus in whom, after such expulsion or extraction, there is no breathing, beating of the heart, pulsation of the umbilical cord, or unmistakable movement of voluntary muscle. Early neonatal mortality refers to the death of a liveborn infant, occurring up to the sixth completed day of life (6 days, 23 hours and 59 minutes). Perinatal mortality includes both stillbirths and early neonatal deaths.",
+                          font_size = 12,
+                          #font_weight = "bold"
+                          )
+      ))
+} else if(is_latex_output()){
+  names(tbl)[1] <- ""
+
+  row.names(tbl) <- tbl[,1]
+
+  kableExtra::kbl(tbl[,-1], format = "latex",
+             booktabs = TRUE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(c(2), bold = TRUE, background = "#E1E1E1") %>%
+    kableExtra::row_spec(0, bold = TRUE) %>% 
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = c("Stillbirth refers to the complete expulsion or extraction from its mother after at least 20 weeks pregnancy, or after attaining a weight of 500 g or more, of a fetus in whom, after such expulsion or extraction, there is no breathing, beating of the heart, pulsation of the umbilical cord, or unmistakable movement of voluntary muscle. Early neonatal mortality refers to the death of a liveborn infant, occurring up to the sixth completed day of life (6 days, 23 hours and 59 minutes). Perinatal mortality includes both stillbirths and early neonatal deaths."), threeparttable = TRUE)
+}
+```
+
+
+
+## Infant mortality by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-22}
+
+```{r plot22, out.width= if (knitr::is_latex_output()){"90%"}}
+
+# select desired variables
+# create baby outcome
+# count total infant mortality by group
+dta1 <- dta[, .(BrthYear,
+               BTOUTCOM,
+               DIFINOUT,
+               DIYROUT)] %>%
+  .[#!tolower(BTSEX) %in% "a" &
+      # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & is.na(DIYROUT) & !is.na(BTOUTCOM), BTOUTCOM,
+                      fifelse(is.na(DIYROUT) & !is.na(DIFINOUT), DIFINOUT, DIYROUT)))] %>%
+  #.[!tolower(babyout) %in% c("pid")] %>%
+  .[, `:=` (infmort = fcase(
+    tolower(babyout) %in% c("lvd"), 0,
+    tolower(babyout) %in% c("end","lnd","nnd"), 1, 
+    tolower(babyout) %in% c("ind"), 2, 
+    default = -1
+    ))] %>%
+  .[, `:=` (infmortT = .N), by = list(BrthYear, infmort)] %>%
+  .[,.(BrthYear, infmort, infmortT)] %>%
+  unique() %>%
+  tidyr::complete(infmort, nesting(BrthYear), fill = list(infmortT = 0)) %>% setDT()
+
+# get the total number of live births
+lb <- unique(dta1[, .(BrthYear, infmortT)]) %>%
+  .[ ,`:=` (infmortT = sum(infmortT, na.rm = TRUE)), by = list(BrthYear)] %>%
+  data.table::setnames(old = "infmortT", new = "dlv") %>%
+  unique()
+
+# remove the live births and post-infant death groups from data
+dta1 <- dta1[!infmort %in% c(0)]
+
+# merge the total live births
+# compute the rate
+dta1 <- merge(dta1, lb, by = "BrthYear") %>%
+  .[, `:=` (rate = 1000*infmortT/dlv)]
+
+# compute 
+temp <- unique(dta1) %>%
+  .[!infmort %in% 0] %>%
+  .[,`:=` (infmort = 3,
+           infmortT = sum(infmortT),
+           rate = sum(rate)), by = list(BrthYear)] 
+  
+dta1 <- unique(rbind(dta1, temp))[,
+            `:=` (cat = factor(infmort,
+                                   levels = c(1,2,3),
+                                   labels = c("Neonatal mortality",
+                                              "Postneonatal mortality",
+                                              "Total infant mortality")))][,
+            .(BrthYear, rate, cat, dlv)][
+              order(BrthYear)
+            ]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1, "rate", ylab = "Rate per 1,000 births", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1, "rate", ylab = "Rate per 1,000 births", yacc = 1)
+    }
+```
+
+```{r tbl22}
+tbl <- dta[, .(BrthYear,
+               BTOUTCOM,
+               DIFINOUT,
+               DIYROUT)] %>%
+  .[#!tolower(BTSEX) %in% "a" &
+      # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, `:=` (babyout = fifelse(is.na(DIFINOUT) & is.na(DIYROUT) & !is.na(BTOUTCOM), BTOUTCOM,
+                      fifelse(is.na(DIYROUT) & !is.na(DIFINOUT), DIFINOUT, DIYROUT)))] %>%
+  #.[!tolower(babyout) %in% c("pid")] %>%
+  .[, `:=` (infmort = fcase(
+    tolower(babyout) %in% c("lvd"), 0,
+    tolower(babyout) %in% c("end","lnd","nnd"), 1, 
+    tolower(babyout) %in% c("ind"), 2, 
+    default = -1
+    ))] %>%
+  .[, `:=` (infmortT = .N), by = list(BrthYear, infmort)] %>%
+  .[,.(BrthYear, infmort, infmortT)] %>%
+  unique() %>%
+  tidyr::complete(infmort, nesting(BrthYear), fill = list(infmortT = 0)) %>% setDT()
+
+# get the total number of live births
+lb <- unique(tbl[, .(BrthYear, infmortT)]) %>%
+  .[ ,`:=` (infmortT = sum(infmortT, na.rm = TRUE)), by = list(BrthYear)] %>%
+  data.table::setnames(old = "infmortT", new = "dlv") %>%
+  unique()
+
+# remove the live births and post-infant death groups from data
+tbl <- tbl[!infmort %in% c(0, -1)]
+
+# merge the total live births
+# compute the rate
+tbl <- merge(tbl, lb, by = "BrthYear") %>%
+  .[, `:=` (rate = 1000*infmortT/dlv)]
+
+# compute 
+temp <- unique(tbl) %>%
+  .[!infmort %in% 0] %>%
+  .[,`:=` (infmort = 3,
+           infmortT = sum(infmortT),
+           rate = sum(rate)), by = list(BrthYear)] 
+  
+tbl <- unique(rbind(tbl, temp))[,
+            `:=` (infmort = factor(
+              infmort,
+              levels = c(1,2,3),
+              labels = c("Neonatal mortality",
+                         "Postneonatal mortality",
+                         "Total infant mortality")))] %>%
+  melt(measure.vars = c("dlv", "infmortT", "rate")) %>%
+  .[!tolower(variable) %in% c("infmortt")] %>%
+  .[, `:=` (infmort = factor(fifelse(tolower(variable) %in% "dlv",
+                               "# live births", as.character(infmort))))] %>%
+  .[, .(BrthYear, infmort, value)] %>%
+  unique() %>%
+  dcast(infmort ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f", "%1.1f", "%1.1f")))
+
+#names(tbl) <- coln
+tbl[,1] <- factor(tbl[,1],labels = c("Total live births","Neonatal mortality", "Postneonatal mortality", "Total infant mortality"))
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Rate per 1,000 births", rep("", ncol(tbl)-1))))
+names(temp) <- names(tbl)
+
+tbl <- rbind(tbl[1,], temp, tbl[-1,])
+
+   ## using datatable package for table appearance
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-22"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-22",
+          style = list(
+            borderBottom = "#DDDDDD",
+            headerStyle = list(borderColor = "#DDDDDD")),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55),
+          rowStyle = function(index){
+            if (index %in% c(2)) list(
+              color = "black",
+              backgroundColor = "#E1E1E1",
+              fontWeight = "bold", 
+              align = "center",
+              borderBottom = "#DDDDDD")
+          },
+          columns = list(
+            infmort = colDef(name = "",
+                         align = "left",
+                         width = 130)
+          )
+) %>%
+  reactablefmtr::add_source("Note: Neonatal mortality refers to the death of a liveborn infant, occurring up to the 27th completed day of life (27 days, 23 hours and 59 minutes). Postneonatal mortality denotes the death of a liveborn infant weighing 500 g or more at birth, occurring from 28 days to 1 year of life. Infant mortality encompasses both neonatal and postneonatal mortality, that is, the death of a liveborn infant occurring within the first year of life.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+
+  row.names(tbl) <- tbl[,1]
+
+  kableExtra::kbl(tbl[,-1], format = "latex",
+             booktabs = TRUE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(c(2), bold = TRUE, background = "#E1E1E1") %>%
+    kableExtra::row_spec(0, bold = TRUE) %>% 
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = c("Neonatal mortality refers to the death of a liveborn infant, occurring up to the $27^{th}$ completed day of life (27 days, 23 hours and 59 minutes). Postneonatal mortality denotes the death of a liveborn infant weighing 500 g or more at birth, occurring from 28 days to 1 year of life. Infant mortality encompasses both neonatal and postneonatal mortality, that is, the death of a liveborn infant occurring within the first year of life."), threeparttable = TRUE, escape = FALSE)
+}
+```

@@ -1,0 +1,520 @@
+---
+params:
+  year1: 2011
+  year2: 2020
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  message = FALSE, 
+  warning = FALSE,
+  fig.pos = "H", 
+  out.extra = "",
+  out.width = '100%',
+  fig.align = 'center',
+  eval.after = "fig.cap")
+
+pckgs <- c(
+  'tidyverse', 'knitr', 'scales','janitor',
+  'kableExtra','data.table','reactablefmtr',
+  'forcats','lubridate','anytime','reactable',
+  'htmltools', 'plotly','purrr')
+# for (pp in `pckgs`) { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(pckgs, character.only = TRUE)
+## data input
+
+# add data
+dta <- arrow::read_parquet("data/NSAtleePD.parquet") %>%
+  collect() %>% 
+  setDT() %>%
+  .[data.table::between(BrthYear, params$year1, params$year2) &
+    ProvNo %in% 12 &
+    (BIRTHWT >= 500 | GA_BEST >= 20), ]
+
+source("utilities/plotLine.R")
+
+csvDownloadButton <- function(tableId, label = "Download (.csv)", filename = paste0(tableId,".csv")) {
+  htmltools::tags$button(
+    tagList(
+      fontawesome::fa("download"), label
+    ),
+    onclick = sprintf("Reactable.downloadDataCSV('%s', '%s')", tableId, filename),
+    style = "
+    background-color: #EBF3F2;
+    color: #00706E;
+    font-size: 14px;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;"
+  )
+}
+```
+
+<!-- \mainmatter: turns on chapter numbering, resets page numbering and uses arabic numerals for page numbers; -->
+
+```{asis index-3, echo=knitr::is_latex_output()}
+\mainmatter
+```
+
+# Deliveries and Births {#section-1}
+
+## Number of deliveries (live births and stillbirths) to residents by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-11}
+
+```{r tbl11, fig.align='center'}
+frmt_ns <- dta[, .(BrthYear,
+              DLNUMFET,
+              CONTCTID)] %>%
+   unique() %>%
+  .[,`:=` ( dlv = fifelse( DLNUMFET > 1, "Multiple", "Singleton"))] %>%
+  # build 2x2 table
+  janitor::tabyl(dlv, BrthYear) %>%
+   # add column totals
+janitor::adorn_totals(c("row")) %>%
+dplyr::mutate_if(is.numeric, scales::comma_format())
+
+tbl <- dta[, .(BrthYear,
+              DLNUMFET,
+              CONTCTID)] %>%
+   unique() %>%
+  .[,`:=` ( dlv = fifelse( DLNUMFET > 1, "Multiple", "Singleton"))] %>%
+  # build 2x2 table
+  janitor::tabyl(dlv, BrthYear) %>%
+   # add column totals
+janitor::adorn_totals(c("row"))
+
+# add comma separator to total count
+# tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+# tbl[2,-1] <- as.character(sapply(as.numeric(tbl[2,-1]), scales::comma_format(accuracy = 1)))
+# tbl[3,-1] <- as.character(sapply(as.numeric(tbl[3,-1]), scales::comma_format(accuracy = 1)))
+# 
+# 
+# names(tbl)[1] <- ""
+
+## using datatable package for table appearance
+if (knitr::is_html_output()){
+  htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-11"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-11",
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55),
+          rowStyle = function(index){
+            if (index == nrow(tbl)) list(
+              color = "black",
+              backgroundColor = "#E1E1E1",
+              fontWeight = "bold",
+              align = "center")
+          },
+          columns = list(
+            dlv = colDef(name = "",
+                         align = "left",
+                         width = 120)
+          ))
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    # kableExtra::row_spec(nrow(tbl), bold = TRUE, background = "#E1E1E1") %>%
+    kableExtra::row_spec(0, bold = TRUE) %>% 
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position"))
+  }
+```
+
+## Number of births by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-12}
+
+```{r plot12, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+               DLNUMFET)] %>%
+  .[, `:=` (dlv = .N), 
+    by = list(BrthYear)] %>%
+  .[, .(BrthYear,
+        dlv)] %>%
+  .[,`:=` (cat = "Total births")] %>% 
+  unique() %>%
+  arrange(BrthYear)
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1, "dlv", ylab = "Number of births", yacc = 1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1, "dlv", ylab = "Number of births", yacc = 1)
+    }
+```
+
+```{r tbl12}
+tbl <- dta[, .(BrthYear,
+               DLNUMFET)] %>%
+  .[, `:=` (total = .N), 
+    by = list(BrthYear)] %>%
+  .[, .(BrthYear,
+        total)] %>%
+  unique() %>%
+  arrange(BrthYear) %>% 
+  melt(measure.vars = c("total")) %>% 
+  dcast(variable ~ BrthYear)
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%.0f")))
+
+tbl[,1] <- factor(tbl[,1],labels = c("Total births"))
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+# names(tbl)[1] <- ""
+
+tbl <- tbl[1,]
+
+   ## using datatable package for table appearance
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-12"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-12",
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55),
+          # rowStyle = function(index){
+          #   if (index == nrow(tbl)) list(
+          #     color = "black",
+          #     backgroundColor = "#E1E1E1",
+          #     fontWeight = "bold",
+          #     align = "center")
+          # },
+          columns = list(
+            variable = colDef(name = "",
+                         align = "left",
+                         width = 120)
+          ))
+      ))
+} else if(is_latex_output()){
+  names(tbl)[1] <- ""
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    # kableExtra::row_spec(c(2), bold = TRUE, background = "#E1E1E1") %>%
+    kableExtra::row_spec(0, bold = TRUE) %>% 
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      font_size = 10,
+      latex_options = c("scale_down","HOLD_position"))
+}
+```
+
+## Number of births by outcome, sex, and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-13}
+
+```{r tbl13}
+tbl <- dta[, .(BrthYear, 
+               BTOUTCOM, 
+               BTSEX)] %>%
+  .[,`:=` ( dlv = fifelse(!BTOUTCOM %in% "FTD" &
+                             BTSEX %in% "M", "Male live births",
+                  fifelse(!BTOUTCOM %in% "FTD" &
+                             BTSEX %in% "F", "Female live births",
+                  fifelse(BTOUTCOM %in% "FTD" &
+                             BTSEX %in% "M", "Male stillbirths","Female stillbirths"))),
+            dlv1 = fifelse(!BTOUTCOM %in% "FTD", "Total live births", "Total stillbirths"))] %>%
+  # remove ambiguous phenotype sex
+ # .[!tolower(BTSEX) %in% "a"] %>%
+  .[, `:=` (BTSEX = factor(BTSEX,
+                           levels = c("F","M"),
+                           labels = c("Female","Male")))]
+
+  
+tbl.f <- tbl[tolower(BTSEX) %in% "female",] %>% 
+  janitor::tabyl(dlv, BrthYear) %>%
+   # add column totals
+janitor::adorn_totals(c("row"), name = "Total Female births")
+
+tbl.m <- tbl[tolower(BTSEX) %in% "male",] %>% 
+  janitor::tabyl(dlv, BrthYear) %>%
+   # add column totals
+janitor::adorn_totals(c("row"), name = "Total Male births")
+
+tbl.t <- tbl %>% 
+  janitor::tabyl(dlv1, BrthYear) %>%
+   # add column totals
+janitor::adorn_totals(c("row"), name = "Total births") %>%
+data.table::setnames(old = "dlv1", new = "dlv")
+
+tbl <- rbind(tbl.f, tbl.m, tbl.t)
+
+# add comma separator to total count
+# tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+# tbl[2,-1] <- as.character(sapply(as.numeric(tbl[2,-1]), scales::comma_format(accuracy = 1)))
+# tbl[3,-1] <- as.character(sapply(as.numeric(tbl[3,-1]), scales::comma_format(accuracy = 1)))
+# tbl[4,-1] <- as.character(sapply(as.numeric(tbl[4,-1]), scales::comma_format(accuracy = 1)))
+# tbl[5,-1] <- as.character(sapply(as.numeric(tbl[5,-1]), scales::comma_format(accuracy = 1)))
+# tbl[6,-1] <- as.character(sapply(as.numeric(tbl[6,-1]), scales::comma_format(accuracy = 1)))
+# tbl[7,-1] <- as.character(sapply(as.numeric(tbl[7,-1]), scales::comma_format(accuracy = 1)))
+# tbl[8,-1] <- as.character(sapply(as.numeric(tbl[8,-1]), scales::comma_format(accuracy = 1)))
+# tbl[9,-1] <- as.character(sapply(as.numeric(tbl[9,-1]), scales::comma_format(accuracy = 1)))
+# 
+# names(tbl)[1] <- ""
+
+## using datatable package for table appearance
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-13"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE, 
+          elementId = "tbl-13",
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55),
+          rowStyle = function(index){
+            if (index %in% (seq(1, nrow(tbl), by = 3) + 2)) list(
+              color = "black",
+              backgroundColor = "#E1E1E1",
+              fontWeight = "bold",
+              align = "center")
+          },
+          columns = list(
+            dlv = colDef(name = "",
+                         align = "left",
+                         width = 130)
+          )
+)%>%
+reactablefmtr::add_source("\u1d43 Sex could not be determined in some infants and these infants are not included in the male or female categories.",
+                          font_size = 12,
+                          #font_weight = "bold"
+                          ) %>% 
+  reactablefmtr::add_source("Note: Stillbirth refers to the complete expulsion or extraction from its mother after at least 20 weeks pregnancy, or after attaining a weight of 500 g or more, of a fetus in whom, after such expulsion or extraction, there is no breathing, beating of the heart, pulsation of the umbilical cord, or unmistakable movement of voluntary muscle.",
+                            font_size = 12,
+                            #font_weight = "bold"
+                            )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             linesep = "") %>%
+    # kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+    kableExtra::row_spec(c(3,6, nrow(tbl)), bold = TRUE, background = "#E1E1E1"
+                         ) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    kableExtra::row_spec(c(2,3,5,6,nrow(tbl)-1), hline_after = TRUE) %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>% 
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = c("Sex could not be determined in some infants and these infants are not included in the male or female categories.",
+                                     "Stillbirth refers to the complete expulsion or extraction from its mother after at least 20 weeks pregnancy, or after attaining a weight of 500 g or more, of a fetus in whom, after such expulsion or extraction, there is no breathing, beating of the heart, pulsation of the umbilical cord, or unmistakable movement of voluntary muscle."), threeparttable = TRUE)
+}
+```
+
+
+## Deliveries resulting from assisted reproductive technology, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-14}
+
+```{r plot14, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+               DLNUMFET,
+               # MZ311,
+               # MZ312,
+               # MZ313,
+               MZ37001,
+               MZ37101,
+               MZ37201,
+               MZ37301,
+               MZ37501,
+               MZ37611,
+               MZ37911,
+               CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (art  = fifelse(
+    MZ37001 >= 1 |
+    MZ37101 >= 1 |
+    MZ37201 >= 1 |
+    MZ37301 >= 1 |
+    MZ37501 >= 1 |
+    MZ37611 >= 1 |
+    MZ37911 >= 1 , 1, 0),
+    dlv = fifelse( DLNUMFET >= 1, 1, 0)), 
+    by = list(BrthYear)] %>%
+  .[, .(BrthYear,
+        dlv,
+        # MZ311,
+        # MZ312,
+        # MZ313,
+        art)] %>%
+  arrange(BrthYear) %>%
+  .[, `:=` (dlv = sum(dlv, na.rm = TRUE),
+            art = sum(art, na.rm = TRUE)),
+    by = list(BrthYear)] %>%
+  .[, `:=` (prop = art/dlv,
+            cat = "Assisted reproduction (%)")] %>%
+  .[,.(BrthYear, prop, dlv, cat)] %>%
+  unique()
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1, "prop", ylab = "Proportion of deliveries", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1, "prop", ylab = "Proportion of deliveries", yacc = 0.1)
+    }
+```
+
+
+```{r tbl14}
+tbl <- dta[, .(BrthYear,
+               DLNUMFET,
+               # MZ311,
+               # MZ312,
+               # MZ313,
+               MZ37001,
+               MZ37101,
+               MZ37201,
+               MZ37301,
+               MZ37501,
+               MZ37611,
+               MZ37911,
+               CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (art  = fifelse(
+    MZ37001 >= 1 |
+    MZ37101 >= 1 |
+    MZ37201 >= 1 |
+    MZ37301 >= 1 |
+    MZ37501 >= 1 |
+    MZ37611 >= 1 |
+    MZ37911 >= 1 , 1, 0),
+    dlv = fifelse( DLNUMFET >= 1, 1, 0)), 
+    by = list(BrthYear)] %>%
+  .[, .(BrthYear,
+        dlv,
+        # MZ311,
+        # MZ312,
+        # MZ313,
+        art)] %>%
+  arrange(BrthYear) %>%
+  .[, `:=` (dlv = sum(dlv, na.rm = TRUE),
+            art = sum(art, na.rm = TRUE)),
+    by = list(BrthYear)] %>%
+  .[, `:=` (prop = 100*art/dlv)] %>%
+  unique() %>%
+  melt(measure.vars = c("dlv", "art", "prop")) %>%
+  dcast(variable ~ BrthYear)
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%.0f", "%1.1f%%")))
+#names(tbl) <- coln
+tbl[,1] <- c("Total deliveries", "Total ART", "Assisted reproduction")
+
+tbl <- tbl[-2,]
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+## using datatable package for table appearance
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-14"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-14",
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 140),
+          columns = list(
+            variable = colDef(name = "",
+                         align = "left",
+                         width = 130)
+          )
+) %>%
+reactablefmtr::add_source("Note: Assisted reproductive technology can include ovulation induction, intracytoplasmic sperm injection (ICSI), embryo transfer, or in vitro fertilization (IVF).",
+                          font_size = 12,
+                          #font_weight = "bold"
+                          )
+      ))
+} else if(is_latex_output()){
+  names(tbl)[1] <- ""
+
+  row.names(tbl) <- tbl[,1]
+
+  kableExtra::kbl(tbl[,-1], format = "latex",
+             booktabs = TRUE,
+             linesep = "") %>%
+    # kableExtra::row_spec(nrow(tbl), bold = TRUE) %>%
+    # kableExtra::row_spec(nrow(tbl), bold = TRUE, background = "#E1E1E1") %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>% 
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = c("Assisted reproductive technology can include ovulation induction, intracytoplasmic sperm injection (ICSI), embryo transfer, or in vitro fertilization (IVF)."), threeparttable = TRUE) 
+}
+```

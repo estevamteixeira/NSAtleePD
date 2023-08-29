@@ -1,0 +1,71 @@
+\contentsline {fm}{Dedication}{vii}{chapter*.1}%
+\contentsline {fm}{Acknowledgements}{ix}{chapter*.2}%
+\contentsline {fm}{Introduction}{xi}{chapter*.3}%
+\contentsline {chapter}{\numberline {1}Deliveries and Births}{1}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Number of deliveries (live births and stillbirths) to residents by year, Nova Scotia, 2011-2020}{1}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Number of births by year, Nova Scotia, 2011-2020}{1}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Number of births by outcome, sex, and year, Nova Scotia, 2011-2020}{2}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Deliveries resulting from assisted reproductive technology, Nova Scotia, 2011-2020}{3}{section.1.4}%
+\contentsline {chapter}{\numberline {2}Perinatal and Infant Mortality}{5}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Perinatal mortality by year, Nova Scotia, 2011-2020}{5}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Infant mortality by year, Nova Scotia, 2011-2020}{6}{section.2.2}%
+\contentsline {chapter}{\numberline {3}Determinants of Maternal, Fetal, and Infant Health}{7}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Maternal age by year, Nova Scotia, 2011-2020}{7}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Maternal age by parity and year, Nova Scotia, 2011-2020}{8}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Maternal parity by year, Nova Scotia, 2011-2020}{9}{section.3.3}%
+\contentsline {section}{\numberline {3.4}Maternal partner status by year, Nova Scotia, 2011-2020}{10}{section.3.4}%
+\contentsline {section}{\numberline {3.5}Maternal smoking during pregnancy by year, Nova Scotia, 2011-2020}{11}{section.3.5}%
+\contentsline {section}{\numberline {3.6}Reduction in amount smoked among women who smoked at their first prenatal visit by year, Nova Scotia, 2011-2020}{12}{section.3.6}%
+\contentsline {section}{\numberline {3.7}Missing information about smoking in pregnancy by year, Nova Scotia, 2011-2020}{13}{section.3.7}%
+\contentsline {section}{\numberline {3.8}Cannabis use recorded during pregnancy by year, Nova Scotia, 2011-2020}{13}{section.3.8}%
+\contentsline {section}{\numberline {3.9}Maternal opioid agonist maintenance therapy during pregnancy by year, Nova Scotia, 2011-2020}{14}{section.3.9}%
+\contentsline {section}{\numberline {3.10}Pre-pregnancy body mass index by year, Nova Scotia, 2011-2020}{15}{section.3.10}%
+\contentsline {section}{\numberline {3.11}Pre-pregnancy obesity class by year, Nova Scotia, 2011-2020}{16}{section.3.11}%
+\contentsline {section}{\numberline {3.12}Gestational weight gain according to recommendations by year, Nova Scotia, 2011-2020}{17}{section.3.12}%
+\contentsline {section}{\numberline {3.13}Gestational weight gain by pre-pregnancy body mass index and year, Nova Scotia, 2011-2020}{18}{section.3.13}%
+\contentsline {section}{\numberline {3.14}Missing information about maternal weight and height by year, Nova Scotia, 2011-2020}{19}{section.3.14}%
+\contentsline {section}{\numberline {3.15}Interpregnancy weight change by year, Nova Scotia, 2011-2020}{19}{section.3.15}%
+\contentsline {section}{\numberline {3.16}Pre-existing diabetes by year, Nova Scotia, 2011-2020}{20}{section.3.16}%
+\contentsline {section}{\numberline {3.17}Pre-existing hypertension by year, Nova Scotia, 2011-2020}{21}{section.3.17}%
+\contentsline {section}{\numberline {3.18}Number of pre-pregnancy risk factors by year, Nova Scotia, 2011-2020}{22}{section.3.18}%
+\contentsline {section}{\numberline {3.19}Use of medication for depression or anxiety during pregnancy by year, Nova Scotia, 2011-2020}{23}{section.3.19}%
+\contentsline {section}{\numberline {3.20}Breastfeeding status during hospital stay by year, Nova Scotia, 2011-2020}{24}{section.3.20}%
+\contentsline {chapter}{\numberline {4}Labour and Birth Processes}{25}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Labour induction by parity and year, Nova Scotia, 2011-2020}{25}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Indication for labour induction by year, Nova Scotia, 2011-2020}{26}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Medical augmentation of labour among women with spontaneous onset of labour by year, Nova Scotia, 2011-2020}{27}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Use of regional anesthesia with vaginal delivery by year, Nova Scotia, 2011-2020}{28}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Type of delivery by year, Nova Scotia, 2011-2020}{29}{section.4.5}%
+\contentsline {section}{\numberline {4.6}Stage of labour before Caesarean delivery by year, Nova Scotia, 2011-2020}{30}{section.4.6}%
+\contentsline {section}{\numberline {4.7}Primary indication for Caesarean delivery by year, Nova Scotia, 2011-2020}{31}{section.4.7}%
+\contentsline {section}{\numberline {4.8}Caesarean delivery by Robson group and year, Nova Scotia, 2011-2020}{32}{section.4.8}%
+\contentsline {section}{\numberline {4.9}Any labour among candidates for vaginal birth after Caesarean by year, 2011-2020}{33}{section.4.9}%
+\contentsline {section}{\numberline {4.10}Type of delivery among candidates for vaginal birth after Caesarean (VBAC) who had any labour by year, 2011-2020}{34}{section.4.10}%
+\contentsline {section}{\numberline {4.11}Labour to 4 cm dilation among candidates for vaginal birth after Caesarean by year, 2011-2020}{35}{section.4.11}%
+\contentsline {section}{\numberline {4.12}Type of delivery among candidates for vaginal birth after Caesarean who had labour to 4 cm dilation by year, 2011-2020}{36}{section.4.12}%
+\contentsline {section}{\numberline {4.13}Episiotomy by parity and year, 2011-2020}{37}{section.4.13}%
+\contentsline {section}{\numberline {4.14}Obstetrical intervention by year, 2011-2020}{38}{section.4.14}%
+\contentsline {chapter}{\numberline {5}Maternal Health Outcomes}{39}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Gestational diabetes by year, Nova Scotia, 2011-2020}{39}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Gestational hypertension by year, Nova Scotia, 2011-2020}{40}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Pre-eclampsia by year, Nova Scotia, 2011-2020}{41}{section.5.3}%
+\contentsline {section}{\numberline {5.4}Placenta previa by year, Nova Scotia, 2011-2020}{42}{section.5.4}%
+\contentsline {section}{\numberline {5.5}Placental abruption by year, Nova Scotia, 2011-2020}{43}{section.5.5}%
+\contentsline {section}{\numberline {5.6}Perineal laceration deliveries by parity and year, Nova Scotia, 2011-2020}{44}{section.5.6}%
+\contentsline {section}{\numberline {5.7}Postpartum hemorrhage by year, Nova Scotia, 2011-2020}{45}{section.5.7}%
+\contentsline {section}{\numberline {5.8}Maternal blood transfusion by year, Nova Scotia, 2011-2020}{46}{section.5.8}%
+\contentsline {section}{\numberline {5.9}Maternal antepartum hospital length of stay (in hours) by year, Nova Scotia, 2011-2020}{47}{section.5.9}%
+\contentsline {section}{\numberline {5.10}Maternal postpartum hospital length of stay (in hours) by type of delivery and year, Nova Scotia, 2011-2020}{48}{section.5.10}%
+\contentsline {chapter}{\numberline {6}Fetal and Infant Health Outcomes}{49}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Low birth weight by year, Nova Scotia, 2011-2020}{49}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Macrosomia by year, Nova Scotia, 2011-2020}{50}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Small for gestational age by year, Nova Scotia, 2011-2020}{51}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Large for gestational age by year, Nova Scotia, 2011-2020}{52}{section.6.4}%
+\contentsline {section}{\numberline {6.5}Preterm births by year, Nova Scotia, 2011-2020}{53}{section.6.5}%
+\contentsline {section}{\numberline {6.6}Birth injury by year, Nova Scotia, 2011-2020}{54}{section.6.6}%
+\contentsline {section}{\numberline {6.7}Phototherapy by year, Nova Scotia, 2011-2020}{55}{section.6.7}%
+\contentsline {section}{\numberline {6.8}Type of respiratory distress syndrome by year, Nova Scotia, 2011-2020}{56}{section.6.8}%
+\contentsline {section}{\numberline {6.9}Neonatal sepsis by birth weight and year, Nova Scotia, 2011-2020}{57}{section.6.9}%
+\contentsline {section}{\numberline {6.10}Newborn length of stay (in days) by birth weight and year, Nova Scotia, 2011-2020}{58}{section.6.10}%
+\contentsline {section}{\numberline {6.11}Neonatal withdrawal from maternal use of opioids by year, Nova Scotia, 2011-2020}{59}{section.6.11}%
+\contentsline {fm}{Glossary}{61}{chapter*.8}%

@@ -1,0 +1,2062 @@
+---
+params:
+  year1: 2011
+  year2: 2020
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  message = FALSE, 
+  warning = FALSE,
+  fig.pos = "H", 
+  out.extra = "",
+  out.width = '90%',
+  fig.align = 'center',
+  eval.after = "fig.cap",
+  dev = "CairoPDF")
+
+pckgs <- c(
+  'tidyverse', 'knitr', 'scales','janitor',
+  'kableExtra','data.table','reactablefmtr',
+  'forcats','lubridate','anytime','reactable',
+  'htmltools', 'plotly','purrr','Cairo')
+# for (pp in `pckgs`) { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(pckgs, character.only = TRUE)
+## data input
+
+# add data
+dta <- arrow::read_parquet("data/NSAtleePD.parquet") %>%
+  collect() %>% 
+  setDT() %>%
+  .[data.table::between(BrthYear, params$year1, params$year2) &
+      ProvNo %in% 12 &
+      (BIRTHWT >= 500 | GA_BEST >= 20), ]
+
+source("utilities/plotLine.R")
+
+csvDownloadButton <- function(tableId, label = "Download (.csv)", filename = paste0(tableId,".csv")) {
+  htmltools::tags$button(
+    tagList(
+      fontawesome::fa("download"), label
+    ),
+    onclick = sprintf("Reactable.downloadDataCSV('%s', '%s')", tableId, filename),
+    style = "
+    background-color: #EBF3F2;
+    color: #00706E;
+    font-size: 14px;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;"
+  )
+}
+```
+
+<!-- # (PART) Deliveries and Births {-} -->
+  
+# Maternal Health Outcomes {#section-5}
+  
+## Gestational diabetes by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-51}
+  
+```{r plot51, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                # pre-pregnancy diabetes
+                R014_00900,
+                R014_01000,
+                R014_01100,
+                R014_01200,
+                MO240,
+                MO241,
+                MO242,
+                MO243,
+                MO245, MO24501, MO24502, MO24504,
+                MO246, MO24601, MO24602, MO24604,
+                MO247, MO24701, MO24704,
+                ME10, ME11, ME13, ME14,
+                MH360,
+                MG632,
+                IP701,
+                # gestational diabetes
+                R014_01300,
+                R014_01400,
+                MO244, MO24401, MO24404, MO24409,
+                MO248, MO24801, MO24802, MO24803, MO24804,
+                MO249,
+                IP700,
+                CONTCTID)] %>%
+  unique() %>%
+  .[, idx_244 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2440.", names(dta)))]] %>%
+  .[, idx_245 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2450.", names(dta)))]] %>%
+  .[, idx_246 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2460.", names(dta)))]] %>%
+  .[, idx_247 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2470.", names(dta)))]] %>%
+  .[, idx_248 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2480.", names(dta)))]] %>%
+  .[, `:=` (predm_nsapd = fcase(
+    R014_00900 >=1 | R014_01000 >=1 | 
+      R014_01100 >=1 | R014_01200 >=1, 1,
+    default = 0
+  ),
+  predm_icd = fcase(
+    MO240 >=1 | MO241 >=1 | MO242 >=1 | MO243 >=1 |
+      MO245 >=1 | idx_245 >=1 |
+      MO246 >=1 | idx_246 >=1 |
+      MO247 >=1 | idx_247 >=1 |
+      ME10 >=1 | ME11 >=1 | ME13 >=1 | ME14 >=1 |
+      MH360 >=1 | MG632 >=1 | IP701  >=1, 1,
+    default = 0
+  ),
+  gdm_nsapd = fcase(
+    R014_01300 >=1 | R014_01400 >=1, 1,
+    default = 0
+  ),
+  gdm_icd = fcase(
+    MO244 >=1 | MO249 >=1 | MO248 >=1 |
+      idx_244 >=1 | idx_248 >=1 |
+      IP700  >=1, 1,
+    default = 0
+  ))] %>%
+  .[, `:=` (prexdiab = fcase(
+    predm_nsapd %in% 1 | predm_icd %in% 1, 1,
+    default = 0
+  ),
+  gestdiab = fcase(
+    gdm_nsapd %in% 1 | gdm_icd %in% 1, 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  # among women without pre-existing diabetes
+  .[prexdiab %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, gestdiab)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, gestdiab)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  gestdiab,
+  levels = c(0,1),
+  labels = c("No",
+             "Gestational diabetes")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[!cat %in% c("No")], "prop", ylab = "Proportion of deliveries", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% c("No")], "prop", ylab = "Proportion of deliveries", yacc = 1)
+    }
+```
+
+```{r tbl51}
+tbl <- dta[, .(BrthYear,
+               # pre-pregnancy diabetes
+               R014_00900,
+               R014_01000,
+               R014_01100,
+               R014_01200,
+               MO240,
+               MO241,
+               MO242,
+               MO243,
+               MO245, MO24501, MO24502, MO24504,
+               MO246, MO24601, MO24602, MO24604,
+               MO247, MO24701, MO24704,
+               ME10, ME11, ME13, ME14,
+               MH360,
+               MG632,
+               IP701,
+               # gestational diabetes
+               R014_01300,
+               R014_01400,
+               MO244, MO24401, MO24404, MO24409,
+               MO248, MO24801, MO24802, MO24803, MO24804,
+               MO249,
+               IP700,
+               CONTCTID)] %>%
+  unique() %>%
+  .[, idx_244 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2440.", names(dta)))]] %>%
+  .[, idx_245 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2450.", names(dta)))]] %>%
+  .[, idx_246 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2460.", names(dta)))]] %>%
+  .[, idx_247 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2470.", names(dta)))]] %>%
+  .[, idx_248 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO2480.", names(dta)))]] %>%
+  .[, `:=` (predm_nsapd = fcase(
+    R014_00900 >=1 | R014_01000 >=1 | 
+      R014_01100 >=1 | R014_01200 >=1, 1,
+    default = 0
+  ),
+  predm_icd = fcase(
+    MO240 >=1 | MO241 >=1 | MO242 >=1 | MO243 >=1 |
+      MO245 >=1 | idx_245 >=1 |
+      MO246 >=1 | idx_246 >=1 |
+      MO247 >=1 | idx_247 >=1 |
+      ME10 >=1 | ME11 >=1 | ME13 >=1 | ME14 >=1 |
+      MH360 >=1 | MG632 >=1 | IP701  >=1, 1,
+    default = 0
+  ),
+  gdm_nsapd = fcase(
+    R014_01300 >=1 | R014_01400 >=1, 1,
+    default = 0
+  ),
+  gdm_icd = fcase(
+    MO244 >=1 | MO249 >=1 | MO248 >=1 |
+      idx_244 >=1 | idx_248 >=1 |
+      IP700  >=1, 1,
+    default = 0
+  ))] %>%
+  .[, `:=` (prexdiab = fcase(
+    predm_nsapd %in% 1 | predm_icd %in% 1, 1,
+    default = 0
+  ),
+  gestdiab = fcase(
+    gdm_nsapd %in% 1 | gdm_icd %in% 1, 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  # among women without pre-existing diabetes
+  .[prexdiab %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, gestdiab)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+      !gestdiab %in% 0] %>%
+  .[, `:=` (gestdiab = fifelse(tolower(variable) %in% "total",
+                               -1, gestdiab))] %>%
+  .[, .(BrthYear, gestdiab, value)] %>%
+  unique() %>%
+  dcast(gestdiab ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total deliveries\u1d43", "Gestational diabetes (%)")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-51"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-51",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            gestdiab = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("\u1d43 Among women without pre-existing diabetes.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source("Note: Diabetes mellitus first detected in pregnancy as recorded in the medical record. Please note that the criteria for the diagnosis of gestational diabetes were revised by Diabetes Canada (formerly the Canadian Diabetes Association) in 2013. Therefore, the rates of gestational diabetes were expected to increase as the new criteria are adopted across Nova Scotia, starting approximately in late 2014.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(1),1] <- c("Total deliveries\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE, escape = FALSE) %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = "Diabetes mellitus first detected in pregnancy as recorded in the medical record. Please note that the criteria for the diagnosis of gestational diabetes were revised by Diabetes Canada (formerly the Canadian Diabetes Association) in 2013. Therefore, the rates of gestational diabetes were expected to increase as the new criteria are adopted across Nova Scotia, starting approximately in late 2014.", alphabet = "Among women without pre-existing diabetes.", threeparttable = TRUE)
+}
+```
+
+## Gestational hypertension by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-52}
+  
+```{r plot52, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                # pre-eclampsia
+                R014_00600, R014_00800,
+                MO14, MO11, MO15,
+                # gh any
+                MO13,
+                R014_00500, R014_01900,
+                # pre htn (hypertension)
+                R014_00700, R014_00800, 
+                MO10,
+                MI10, MI11, MI12, MI13, MI15, MCHTD,
+               CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (preeclamp = fcase(
+    R014_00600 >=1 | R014_00800 >=1 |
+    MO14 >=1 | MO11 >=1 | MO15 >=1, 1,
+   default = 0
+    ),
+   ghany = fcase(
+    MO13 >=1 | MO14 >=1 | MO15 >=1 |
+    R014_00500 >=1 | R014_01900 >=1, 1,
+   default = 0
+   ),
+   prehtn = fcase(
+    R014_00700 >=1 | R014_00800 >=1 | 
+    MO10 >=1 | MO11 >=1 |
+    MI10 >=1 | MI11 >=1 | MI12 >=1 | MI13 >=1 | MI15 >=1 | MCHTD >=1, 1,
+   default = 0
+    ))] %>%
+  .[, `:=` (ghinsig = fcase(
+    ghany >=1 & !preeclamp >=1 & !prehtn >=1 , 1,
+   default = 0
+    ))] %>%
+  .[, `:=` (ghcat = fcase(
+    !preeclamp >=1 & !ghinsig >=1, 1,
+    !preeclamp >=1 & ghinsig >=1, 2,
+    preeclamp >=1 , 3,
+   default = 0
+    ))] %>%
+  # remove prehtn
+  .[!prehtn >= 1] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, ghcat)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[!ghcat %in% 1, .(BrthYear, ghcat, count, dlv, prop)] %>% 
+  unique()
+
+temp <- unique(dta1) %>%
+  .[,`:=` (ghcat = 1,
+           count = sum(count),
+           dlv = dlv,
+           prop = sum(prop)), by = list(BrthYear)]
+
+
+dta1 <- unique(rbind(dta1, temp))[,
+            `:=` (cat = factor(
+              ghcat,
+              levels = c(1,2,3),
+              labels = c("GH-total",
+                         "GH-no sig proteinuria",
+                         "GH-sig proteinuria")))][,
+              .(BrthYear, prop, dlv, ghcat, cat)][order(BrthYear, ghcat)]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1, "prop", ylab = "Proportion of deliveries", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1, "prop", ylab = "Proportion of deliveries", yacc = 1)
+    }
+```
+
+```{r tbl52}
+tbl <- dta[, .(BrthYear,
+                # pre-eclampsia
+                R014_00600, R014_00800, R014_01800,
+                MO14, MO11, MO15,
+                # gh any
+                MO13,
+                R014_00500, R014_01900,
+                # pre htn
+                R014_00700, R014_00800, 
+                MO10,
+                MI10, MI11, MI12, MI13, MI15, MCHTD,
+               CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (preeclamp = fcase(
+    R014_00600 >=1 | R014_00800 >=1 |
+    MO14 >=1 | MO11 >=1 | MO15 >=1, 1,
+   default = 0
+    ),
+   ghany = fcase(
+    MO13 >=1 | MO14 >=1 | MO15 >=1 |
+    R014_00500 >=1 | R014_01900 >=1, 1,
+   default = 0
+   ),
+   prehtn = fcase(
+    R014_00700 >=1 | R014_00800 >=1 | 
+    MO10 >=1 | MO11 >=1 |
+    MI10 >=1 | MI11 >=1 | MI12 >=1 | MI13 >=1 | MI15 >=1 | MCHTD >=1, 1,
+   default = 0
+    ))] %>%
+  .[, `:=` (ghinsig = fcase(
+    ghany >=1 & !preeclamp >=1 & !prehtn >=1 , 1,
+   default = 0
+    ))] %>%
+  .[, `:=` (ghcat = fcase(
+    !preeclamp >=1 & !ghinsig >=1, 1,
+    !preeclamp >=1 & ghinsig >=1, 2,
+    preeclamp >=1 , 3,
+   default = 0
+    ))] %>%
+  # remove prehtn
+  .[!prehtn >= 1] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, ghcat)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  .[!ghcat %in% 1, .(BrthYear, ghcat, count, total, rate)] %>% 
+  unique()
+
+temp <- unique(tbl) %>%
+  .[,`:=` (ghcat = 4,
+           count = sum(count),
+           total = total,
+           rate = sum(rate)), by = list(BrthYear)]
+
+
+tbl <- unique(rbind(tbl, temp)) %>%
+  melt(measure.vars = c("count", "total", "rate")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (ghcat = fifelse(tolower(variable) %in% "total",
+                          -1, ghcat))] %>%
+  .[, .(BrthYear, ghcat, value)] %>%
+  unique() %>%
+  dcast(ghcat ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
+
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total deliveries\u1d43", "GH-no sig proteinuria", "GH-sig proteinuria", "GH-total")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-52"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-52",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          rowStyle = function(index){
+            if (index == nrow(tbl)) list(
+              color = "black",
+              backgroundColor = "#E1E1E1",
+              fontWeight = "bold",
+              align = "center",
+              borderBottom = "#DDDDDD")
+          },
+          columns = list(
+            ghcat = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("\u1d43 Among women without pre-existing hypertension.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source("Note: Gestational hypertension is hypertension that is first detected after the 20th week of gestation. Gestational hypertension with significant proteinuria includes those cases denoted as such; severe pre-eclampsia; HELLP syndrome (Hemolysis, Elevated Liver Enzymes, Low Platelets); and eclampsia.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(1),1] <- c("Total deliveries\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = "Gestational hypertension is hypertension that is first detected after the 20th week of gestation. Gestational hypertension with significant proteinuria includes those cases denoted as such; severe pre-eclampsia; HELLP syndrome (Hemolysis, Elevated Liver Enzymes, Low Platelets); and eclampsia.", alphabet = "Among women without pre-existing hypertension.", threeparttable = TRUE)
+}
+```
+
+## Pre-eclampsia by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-53}
+  
+```{r plot53, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                BTBrthDT,
+                # pre-eclampsia
+                R014_00600, R014_00800, R014_01800, R014_01900,
+                MO14, MO11, MO15,
+                MO11001, MO11002, MO11003,
+                MO14101, MO14102,
+                MO14201, MO14202, MO14204,
+               CONTCTID)] %>%
+  unique() %>%
+  .[, idx_MO1410 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO1410.", names(dta)))]] %>%
+  .[, idx_MO1420 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO1420.", names(dta)))]] %>%
+  .[, idx_MO11 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO11.", names(dta)))]] %>%
+  .[, `:=` (preeclamp = fcase(
+    R014_00600 >=1 | R014_00800 >=1 |
+      R014_01800 >=1 | R014_01900 >=1 |
+    (BTBrthDT < as.Date("2012-04-01","%Y-%m-%d") & MO14 >=1 ) | 
+      (BTBrthDT >= as.Date("2012-04-01","%Y-%m-%d") & idx_MO1410 >=1 ) | idx_MO1420 >=1 | 
+      idx_MO11 >=1 | MO15 >=1 | 
+      idx_MO1410 >= 1 | idx_MO1420 >= 1 | idx_MO11 >= 1, 1,
+   default = 0
+    ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, preeclamp)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, preeclamp)] %>%
+  unique()
+
+
+dta1 <- dta1[, `:=` (cat = factor(
+  preeclamp,
+  levels = c(0,1),
+  labels = c("No",
+             "Pre-eclampsia")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[!cat %in% "No"], "prop", ylab = "Proportion of deliveries", yacc = 0.01)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% "No"], "prop", ylab = "Proportion of deliveries", yacc = 0.1)
+  }
+```
+
+```{r tbl53}
+tbl <- dta[, .(BrthYear,
+                BTBrthDT,
+                # pre-eclampsia
+                R014_00600, R014_00800, R014_01800, R014_01900,
+                MO14, MO11, MO15,
+                MO11001, MO11002, MO11003,
+                MO14101, MO14102,
+                MO14201, MO14202, MO14204,
+               CONTCTID)] %>%
+  unique() %>%
+  .[, idx_MO1410 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO1410.", names(dta)))]] %>%
+  .[, idx_MO1420 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO1420.", names(dta)))]] %>%
+  .[, idx_MO11 := rowSums(.SD, na.rm = TRUE), .SDcols = names(dta)[which(grepl("MO11.", names(dta)))]] %>%
+  .[, `:=` (preeclamp = fcase(
+    R014_00600 >=1 | R014_00800 >=1 |
+      R014_01800 >=1 | R014_01900 >=1 |
+    (BTBrthDT < as.Date("2012-04-01","%Y-%m-%d") & MO14 >=1 ) | 
+      (BTBrthDT >= as.Date("2012-04-01","%Y-%m-%d") & idx_MO1410 >=1 ) | idx_MO1420 >=1 | 
+      idx_MO11 >=1 | MO15 >=1 | 
+      idx_MO1410 >= 1 | idx_MO1420 >= 1 | idx_MO11 >= 1, 1,
+   default = 0
+    ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, preeclamp)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  unique() %>%
+  melt(measure.vars = c("count", "total", "rate")) %>%
+  .[!tolower(variable) %in% "count" &
+    !preeclamp %in% 0] %>%
+  .[, `:=` (preeclamp = fifelse(tolower(variable) %in% "total",
+                          -1, preeclamp))] %>%
+  .[, .(BrthYear, preeclamp, value)] %>%
+  unique() %>%
+  dcast(preeclamp ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.2f%%")))
+
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total deliveries", "Pre-eclampsia (%)")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-53"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-53",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            preeclamp = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("Note: Pre-eclampsia includes women coded as having gestational hypertension with significant proteinuria, moderate or severe pre-eclampsia, HELLP syndrome (Hemolysis, Elevated Liver Enzymes, Low Platelets), eclampsia, or pre-existing hypertension with superimposed proteinuria.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(1),1] <- c("Total deliveries\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = "Pre-eclampsia includes women coded as having gestational hypertension with significant proteinuria, moderate or severe pre-eclampsia, HELLP syndrome (Hemolysis, Elevated Liver Enzymes, Low Platelets), eclampsia, or pre-existing hypertension with superimposed proteinuria.", threeparttable = TRUE)
+}
+```
+
+## Placenta previa by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-54}
+  
+```{r plot54, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+        MO44,
+        CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (plaprev = fcase(
+    MO44 >=1, 1, 
+    default = 0
+  ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, plaprev)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, plaprev)] %>%
+  unique()
+
+
+dta1 <- dta1[, `:=` (cat = factor(
+  plaprev,
+  levels = c(0,1),
+  labels = c("No",
+             "Placenta previa")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[!cat %in% "No"], "prop", ylab = "Proportion of deliveries", yacc = 0.01)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% "No"], "prop", ylab = "Proportion of deliveries", yacc = 0.1)
+  }
+```
+
+```{r tbl54}
+tbl <- dta[, .(BrthYear,
+        MO44,
+        CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (plaprev = fcase(
+    MO44 >=1, 1, 
+    default = 0
+  ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, plaprev)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  unique() %>%
+  melt(measure.vars = c("count", "total", "rate")) %>%
+  .[!tolower(variable) %in% "count" &
+    !plaprev %in% 0] %>%
+  .[, `:=` (plaprev = fifelse(tolower(variable) %in% "total",
+                          0, plaprev))] %>%
+  .[, .(BrthYear, plaprev, value)] %>%
+  unique() %>%
+  dcast(plaprev ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.2f%%")))
+
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total deliveries", "Placenta previa (%)")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-54"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-54",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            plaprev = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("Note: Placenta previa is diagnosed when the placenta entirely or partially covers the opening of the uterus (cervix). The diagnosis is not made on ultrasound alone and must be confirmed clinically.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(1),1] <- c("Total deliveries\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = "Placenta previa is diagnosed when the placenta entirely or partially covers the opening of the uterus (cervix). The diagnosis is not made on ultrasound alone and must be confirmed clinically.", threeparttable = TRUE)
+}
+```
+
+## Placental abruption by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-55}
+  
+```{r plot55, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+        MO45,
+        CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (plaabrp = fcase(
+    MO45 >=1, 1, 
+    default = 0
+  ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, plaabrp)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, plaabrp)] %>%
+  unique()
+
+
+dta1 <- dta1[, `:=` (cat = factor(
+  plaabrp,
+  levels = c(0,1),
+  labels = c("No",
+             "Placenta abruption")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[!cat %in% "No"], "prop", ylab = "Proportion of deliveries", yacc = 0.01)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% "No"], "prop", ylab = "Proportion of deliveries", yacc = 0.1)
+  }
+```
+
+```{r tbl55}
+tbl <- dta[, .(BrthYear,
+        MO45,
+        CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (plaabrp = fcase(
+    MO45 >=1, 1, 
+    default = 0
+  ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, plaabrp)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  unique() %>%
+  melt(measure.vars = c("count", "total", "rate")) %>%
+  .[!tolower(variable) %in% "count" &
+    !plaabrp %in% 0] %>%
+  .[, `:=` (plaabrp = fifelse(tolower(variable) %in% "total",
+                          0, plaabrp))] %>%
+  .[, .(BrthYear, plaabrp, value)] %>%
+  unique() %>%
+  dcast(plaabrp ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.2f%%")))
+
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total deliveries", "Placenta abruption (%)")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-55"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-55",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            plaabrp = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("Note: Placental abruption is defined as bleeding from the placental site due to the partial or complete separation of the placenta. The diagnosis is not made on ultrasound alone and must be confirmed clinically.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(1),1] <- c("Total deliveries\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = "Placental abruption is defined as bleeding from the placental site due to the partial or complete separation of the placenta. The diagnosis is not made on ultrasound alone and must be confirmed clinically.", threeparttable = TRUE)
+}
+```
+
+## Perineal laceration deliveries by parity and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-56}
+  
+```{r plot56, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+       MO701,
+       MO702, MO70201, MO70204, MO70211, MO70214, MO70221, MO70231, MO70234, MO70281, MO70291,
+       MO703, MO70301, MO70304,
+       DLPARA,
+       DMMETHOD,
+       MOTHERID)] %>%
+  unique() %>%
+  # Primiparous women
+  # vaginal delivery
+  .[#DLPARA %in% 0 &
+    # vaginal
+    tolower(DMMETHOD) %in% c("biv", "spt", "vac", "low", "mid")] %>%
+  .[, `:=` (lacer = fcase(
+    # second degree
+    MO701 >=1, 1,
+    # 3rd degree or 4th
+    MO702 >=1 | MO70201 >=1 | MO70204 >=1 | MO70211 >=1 | MO70214 >=1 | MO70221 >=1 | MO70231 >=1 | MO70234 >=1 | MO70281 >=1 | MO70291 >=1 |
+    MO703 >=1 | MO70301 >=1 | MO70304 >=1, 2, 
+    default = 0
+  ),
+  parity = fcase(
+    DLPARA %in% 0 , 1,
+    DLPARA >= 1, 2,
+    default = 3
+    ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lacer, parity)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, parity)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, lacer, parity)] %>%
+  .[!parity %in% 3] %>%
+  unique()
+
+
+dta1 <- dta1[, `:=` (lacer = factor(
+  lacer,
+  levels = c(0,1,2),
+  labels = c("No",
+             "2\u207f\u1d48 degree laceration",
+             "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration")),
+                      parity = factor(
+  parity,
+  levels = c(1,2),
+  labels = c("Primiparous",
+             "Multiparous")))]
+
+## getting color for plotting
+
+pal <- c(#"No" = "#1b9e77",
+         "2\u207f\u1d48 degree laceration" = "#008D8B",
+         "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration" = "#FE5D26")
+
+if (knitr::is_html_output()){
+  
+  plot <- ggplot(data = dta1[!tolower(lacer) %in% "no"],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = interaction(lacer, parity),
+                   colour = lacer,
+                   fill = lacer,
+                   shape = lacer,
+                   linetype = parity,
+                   text =paste(paste0(lacer," - ", parity," - ",BrthYear),
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               paste0("<br>",lacer," (%):") , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = lacer, fill = lacer, shape = lacer),
+             size = 2) +
+  geom_line(aes(color = lacer, fill = lacer),
+            alpha = 0.65) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(21, 3)) +
+  scale_linetype_manual(name = "",
+                        values = c(1,2)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = .1),
+    limits = c(0, NA)) +
+  labs(y = 'Proportion of vaginal deliveries', x = '') +
+  theme_classic()
+  
+  plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    align = "left",
+    align = "left",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+  
+  } else if(is_latex_output()){
+    
+ggplot(data = dta1[!tolower(lacer) %in% "no"],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = interaction(lacer, parity),
+                   colour = lacer,
+                   fill = lacer,
+                   shape = lacer,
+                   linetype = parity,
+                   text =paste(paste0(lacer," - ", parity," - ",BrthYear),
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               paste0("<br>",lacer," (%):") , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = lacer, fill = lacer, shape = lacer),
+             size = 3) +
+  geom_line(aes(color = lacer, fill = lacer),
+            alpha = 0.65) +
+  # Specifying colors by age group
+  scale_color_manual(name = "Laceration",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "Laceration",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "Laceration",
+                     values = c(21, 3)) +
+  scale_linetype_manual(name = "Parity",
+                        values = c(1,2)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = 'Proportion of vaginal deliveries', x = '') +
+  theme_classic() +
+  theme(strip.text.x = element_text( face = "bold", size = 10),
+          strip.background = element_blank(),
+          axis.title.x = element_text(face="bold", size = 10),
+          axis.title.y = element_text(face="bold", size = 10),
+          axis.text.x = element_text(face="bold", size = 8, color = "black"),
+          axis.text.y = element_text(face="bold", size = 8, color = "black"),
+          title = element_text(face="bold", size = 10, hjust = 0.5),
+          plot.title = element_text(hjust = 0.5),
+          # legend
+          legend.position = "bottom",
+          legend.text = element_text(face="bold", size = 8),
+          legend.title = element_text(face="bold", size = 8),
+          legend.justification = "center",
+          legend.box = "horizontal") +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE), linetype = guide_legend(nrow = 2, byrow = TRUE), shape = guide_legend(nrow = 2, byrow = TRUE))
+  }
+```
+
+```{r tbl56}
+tbl <- dta[, .(BrthYear,
+       MO701,
+       MO702, MO70201, MO70204, MO70211, MO70214, MO70221, MO70231, MO70234, MO70281, MO70291,
+       MO703, MO70301, MO70304,
+       DLPARA,
+       DMMETHOD,
+       MOTHERID)] %>%
+  unique() %>%
+  # Primiparous women
+  # vaginal delivery
+  .[#DLPARA %in% 0 &
+    # vaginal
+    tolower(DMMETHOD) %in% c("biv", "spt", "vac", "low", "mid")] %>%
+  .[, `:=` (lacer = fcase(
+    # second degree
+    MO701 >=1, 1,
+    # 3rd degree
+    MO702 >=1 | MO70201 >=1 | MO70204 >=1 | MO70211 >=1 | MO70214 >=1 | MO70221 >=1 | MO70231 >=1 | MO70234 >=1 | MO70281 >=1 | MO70291 >=1 |
+    MO703 >=1 | MO70301 >=1 | MO70304 >=1, 2, 
+    default = 0
+  ),
+ parity = fcase(
+    DLPARA %in% 0 , 1,
+    DLPARA >= 1, 2,
+    default = 3
+    ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lacer, parity)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, parity)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  .[!parity %in% 3] %>%
+  unique()
+
+tbl1 <- tbl %>%
+  .[parity %in% 1] %>%
+  melt(measure.vars = c("count", "total", "rate")) %>%
+  .[!tolower(variable) %in% "count" &
+    !lacer %in% 0] %>%
+  .[, `:=` (lacer = fifelse(tolower(variable) %in% "total",
+                          0, lacer))] %>%
+  .[, .(BrthYear, lacer, value)] %>%
+  unique() %>%
+  dcast(lacer ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+
+#names(tbl) <- coln
+
+tbl1[,1] <- c("Total vaginal deliveries\u1d43", "2\u207f\u1d48 degree laceration", "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration")
+
+# add comma separator to total count
+tbl1[1,-1] <- as.character(sapply(as.numeric(tbl1[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Primiparous", rep("", ncol(tbl1)-1))))
+names(temp) <- names(tbl1)
+
+tbl1 <- rbind(temp,tbl1)
+
+tbl2 <- tbl %>%
+  .[parity %in% 2] %>%
+  melt(measure.vars = c("count", "total", "rate")) %>%
+  .[!tolower(variable) %in% "count" &
+    !lacer %in% 0] %>%
+  .[, `:=` (lacer = fifelse(tolower(variable) %in% "total",
+                          0, lacer))] %>%
+  .[, .(BrthYear, lacer, value)] %>%
+  unique() %>%
+  dcast(lacer ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+
+#names(tbl) <- coln
+
+tbl2[,1] <- c("Total vaginal deliveries\u1d43", "2\u207f\u1d48 degree laceration", "3\u02b3\u1d48 or 4\u1d57\u02b0 degree laceration")
+
+# add comma separator to total count
+tbl2[1,-1] <- as.character(sapply(as.numeric(tbl2[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Multiparous", rep("", ncol(tbl2)-1))))
+names(temp) <- names(tbl2)
+
+tbl2 <- rbind(temp,tbl2)
+
+tbl <- setDT(rbind(tbl1, tbl2))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-56"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-56",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          rowStyle = function(index){
+            if (index %in% (seq(1,nrow(tbl), by = 4))) list(
+              color = "black",
+              backgroundColor = "#E1E1E1",
+              fontWeight = "bold",
+              align = "center",
+              borderBottom = "#DDDDDD")
+          },
+          columns = list(
+            lacer = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("\u1d43 With known partner status.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source("Note: Maternal perineal laceration, rupture or tear during delivery involving the pelvic floor, perineal muscles, or vaginal muscles (2\u207f\u1d48 degree), anal sphincter (3\u02b3\u1d48 degree), or rectal mucosa (4\u1d57\u02b0 degree).",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(2,6),1] <- c("Total vaginal deliveries\\textsuperscript{a}")
+  
+  tbl[c(3,4,7,8),1] <- c("$2^{nd}$ degree laceration",
+                         "$3^{rd}$ or $4^{th}$ degree laceration",
+                         "$2^{nd}$ degree laceration",
+                         "$3^{rd}$ or $4^{th}$ degree laceration")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    kableExtra::row_spec(c(1,5), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = "Maternal perineal laceration, rupture or tear during delivery involving the pelvic floor, perineal muscles, or vaginal muscles ($2^{nd}$ degree), anal sphincter ($3^{rd}$ degree), or rectal mucosa ($4^{th}$ degree).", threeparttable = TRUE, escape = FALSE)
+}
+```
+
+## Postpartum hemorrhage by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-58}
+  
+```{r plot58, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+     R003_00400, R003_00900, R003_01300, R003_01400, R003_02200,
+     R027_00400, 
+     R029_00100, R029_00200, R029_00300, R029_00400, 
+     MO72,
+     M_1KT51, M_1RM13GQC2,
+     M_1RM13GQW0, M_5PC91HR, M_5PC91HT,
+     M_5PC91HU, M_5PC91HV, M_5PC91LA,
+     CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (postph = fcase(
+    R003_00400 >=1 | R003_00900 >=1 | R003_01300 >=1 | R003_01400 >=1 | R003_02200 >=1 |
+     R027_00400 >=1 | 
+     R029_00100 >=1 | R029_00200 >=1 | R029_00300 >=1 | R029_00400 >=1 | 
+     MO72 >=1 |
+     M_1KT51 >=1 | M_1RM13GQC2 >=1 |
+     M_1RM13GQW0 >=1 | M_5PC91HR >=1 | M_5PC91HT >=1 |
+     M_5PC91HU >=1 | M_5PC91HV >=1 | M_5PC91LA >=1, 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, postph)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, dlv, prop, postph)] %>%
+  unique()
+
+
+dta1 <- dta1[, `:=` (cat = factor(
+  postph,
+  levels = c(0,1),
+  labels = c("No",
+             "Postpartum hemorrhage")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[!cat %in% "No"], "prop", ylab = "Proportion of deliveries", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% "No"], "prop", ylab = "Proportion of deliveries", yacc = 1)
+  }
+```
+
+```{r tbl58}
+tbl <- dta[, .(BrthYear,
+     R003_00400, R003_00900, R003_01300, R003_01400, R003_02200,
+     R027_00400, 
+     R029_00100, R029_00200, R029_00300, R029_00400, 
+     MO72,
+     M_1KT51, M_1RM13GQC2,
+     M_1RM13GQW0, M_5PC91HR, M_5PC91HT,
+     M_5PC91HU, M_5PC91HV, M_5PC91LA,
+     CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (postph = fcase(
+    R003_00400 >=1 | R003_00900 >=1 | R003_01300 >=1 | R003_01400 >=1 | R003_02200 >=1 |
+     R027_00400 >=1 | 
+     R029_00100 >=1 | R029_00200 >=1 | R029_00300 >=1 | R029_00400 >=1 | 
+     MO72 >=1 |
+     M_1KT51 >=1 | M_1RM13GQC2 >=1 |
+     M_1RM13GQW0 >=1 | M_5PC91HR >=1 | M_5PC91HT >=1 |
+     M_5PC91HU >=1 | M_5PC91HV >=1 | M_5PC91LA >=1, 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, postph)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  unique() %>%
+  melt(measure.vars = c("count", "total", "rate")) %>%
+  .[!tolower(variable) %in% "count" &
+    !postph %in% 0] %>%
+  .[, `:=` (postph = fifelse(tolower(variable) %in% "total",
+                          0, postph))] %>%
+  .[, .(BrthYear, postph, value)] %>%
+  unique() %>%
+  dcast(postph ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
+
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total deliveries", "Postpartum hemorrhage (%)")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-58"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-58",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            postph = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("Note: Postpartum hemorrhage is diagnosed if, after the delivery of the fetus, excessive maternal bleeding occurs from the genital tract with an estimated blood loss of greater than 500 mL for vaginal deliveries or 1000 mL for Caesarean section deliveries.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(2,6),1] <- c("Total vaginal deliveries\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,5), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = "Postpartum hemorrhage is diagnosed if, after the delivery of the fetus, excessive maternal bleeding occurs from the genital tract with an estimated blood loss of greater than 500 mL for vaginal deliveries or 1000 mL for Caesarean section deliveries.", threeparttable = TRUE)
+}
+```
+
+## Maternal blood transfusion by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-59}
+  
+```{r plot59, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+     RBC,
+     CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (transf = fcase(
+    RBC >=1 , 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, transf)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, transf)] %>%
+  unique()
+
+dta1 <- dta1[, `:=` (cat = factor(
+  transf,
+  levels = c(0,1),
+  labels = c("No",
+             "Transfusion")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[!cat %in% "No"], "prop", ylab = "Proportion of deliveries", yacc = 0.01)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% "No"], "prop", ylab = "Proportion of deliveries", yacc = 0.1)
+  }
+```
+
+```{r tbl59}
+tbl <- dta[, .(BrthYear,
+     RBC,
+     CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (transf = fcase(
+    RBC >=1 , 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, transf)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  unique() %>%
+  melt(measure.vars = c("count", "total", "rate")) %>%
+  .[!tolower(variable) %in% "count" &
+    !transf %in% 0] %>%
+  .[, `:=` (transf = fifelse(tolower(variable) %in% "total",
+                          0, transf))] %>%
+  .[, .(BrthYear, transf, value)] %>%
+  unique() %>%
+  dcast(transf ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.2f%%")))
+
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total deliveries", "Transfusion (%)")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-59"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-59",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            transf = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("Note: One or more maternal transfusions of red blood cells in the antepartum, intrapartum, or postpartum periods.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(2,6),1] <- c("Total vaginal deliveries\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,5), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = "One or more maternal transfusions of red blood cells in the antepartum, intrapartum, or postpartum periods.", threeparttable = TRUE)
+}
+```
+
+## Maternal antepartum hospital length of stay (in hours) by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-510}
+  
+```{r plot510, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+     APLoS,
+     MOTHERID)] %>%
+  unique() %>%
+  .[!is.na(APLoS)] %>%
+  .[, `:=` (total = .N,
+            mean = mean(APLoS, na.rm = TRUE),
+            med = median(APLoS, na.rm = TRUE)), by = list(BrthYear)] %>%
+  .[,.(BrthYear, total, med)] %>%
+  unique()
+
+if (knitr::is_html_output()){
+  
+  plot <- ggplot(data = dta1,
+               aes(x = BrthYear,
+                   y = med,
+                   group = 1,
+                   #shape = BrthYear,
+                   text =paste(BrthYear,
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               "<br>% Median lenght of stay (in hours):" , scales::comma(med, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = "#008D8B", fill = "#008D8B"),
+             size = 2) +
+  geom_line(aes(color = "#008D8B", fill = "#008D8B"), 
+            alpha = 0.65) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = "#008D8B") +
+  scale_fill_manual(name = "",
+                    values = "#008D8B") +
+  # scale_shape_manual(name = "",
+  #                    values = c(15, 16)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::comma_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = 'Median antepartum LoS (in hours)', x = '') +
+  theme_classic()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    align = "left",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = FALSE)
+  
+  } else if(is_latex_output()){
+    
+ggplot(data = dta1,
+               aes(x = BrthYear,
+                   y = med,
+                   group = 1,
+                   #shape = BrthYear,
+                   text =paste(BrthYear,
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               "<br>% Median lenght of stay (in hours):" , scales::comma(med, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = "#008D8B", fill = "#008D8B"), show.legend = FALSE,
+             size = 3) +
+  geom_line(aes(color = "#008D8B", fill = "#008D8B"), show.legend = FALSE,
+            alpha = 0.65) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = "#008D8B") +
+  scale_fill_manual(name = "",
+                    values = "#008D8B") +
+  # scale_shape_manual(name = "",
+  #                    values = c(15, 16)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::comma_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = 'Median antepartum LoS (in hours)', x = 'Year') +
+  theme_classic() +
+  theme(strip.text.x = element_text( face = "bold", size = 10),
+          strip.background = element_blank(),
+          axis.title.x = element_text(face="bold", size = 10),
+          axis.title.y = element_text(face="bold", size = 10),
+          axis.text.x = element_text(face="bold", size = 8, color = "black"),
+          axis.text.y = element_text(face="bold", size = 8, color = "black"),
+          title = element_text(face="bold", size = 10, hjust = 0.5),
+          plot.title = element_text(hjust = 0.5),
+          # legend
+          legend.position = "bottom",
+          legend.text = element_text(face="bold", size = 8),
+          legend.title = element_text(face="bold", size = 8),
+          legend.justification = "center",
+          legend.box = "horizontal") +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE), linetype = guide_legend(nrow = 2, byrow = TRUE))
+  }
+```
+
+```{r tbl510}
+tbl <- dta[, .(BrthYear,
+     APLoS,
+     MOTHERID)] %>%
+  unique() %>%
+  .[!is.na(APLoS)] %>%
+  .[, `:=` (total = .N,
+            mean = mean(APLoS, na.rm = TRUE),
+            med = median(APLoS, na.rm = TRUE)), by = list(BrthYear)] %>%
+  unique() %>%
+  melt(measure.vars = c("total", "mean", "med")) %>%
+  # .[!tolower(variable) %in% "count" &
+  #   !transf %in% 0] %>%
+  # .[, `:=` (transf = fifelse(tolower(variable) %in% "total",
+  #                         0, transf))] %>%
+  .[, .(BrthYear, variable, value)] %>%
+  unique() %>%
+  dcast(variable ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%.1f", "%.1f")))
+
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total deliveries", "Mean (in hours)", "Median (in hours)")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-510"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-510",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            variable = colDef(
+              name = "Lenght of stay",
+              align = "left",
+              width = 140)
+          ))
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(2,6),1] <- c("Total vaginal deliveries\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,5), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position"))
+    # kableExtra::footnote(general = "One or more maternal transfusions of red blood cells in the antepartum, intrapartum, or postpartum periods.", threeparttable = TRUE)
+}
+```
+
+## Maternal postpartum hospital length of stay (in hours) by type of delivery and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-511}
+  
+```{r plot511, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+     PPLoS,
+     DMMETHOD,
+     MOTHERID)] %>%
+  unique() %>%
+  .[!is.na(PPLoS)] %>%
+  .[, `:=` (deliv = fcase(
+      # spontaneous vaginal
+      tolower(DMMETHOD) %in% c("biv", "spt"), 1,
+      # assisted vaginal
+      tolower(DMMETHOD) %in% c("vac", "low", "mid"), 2,
+      # c-section
+      tolower(DMMETHOD) %in% c("cst"), 3,
+      default = 4
+    ))] %>%
+  .[!deliv %in% 4] %>%
+  .[, `:=` (total = .N,
+            mean = mean(PPLoS, na.rm = TRUE),
+            med = median(PPLoS, na.rm = TRUE)), by = list(BrthYear, deliv)] %>%
+  .[,.(BrthYear, total, med, deliv)] %>%
+  unique()
+
+dta1 <- dta1[, `:=` (deliv = factor(
+  deliv,
+  levels = c(1,2,3),
+  labels = c("Spontaneous vaginal",
+             "Assisted vaginal",
+             "Caesarean section")))]
+
+## getting color for plotting
+
+pal <- c("Spontaneous vaginal" = "#1b9e77",
+         "Assisted vaginal" = "#d95f02",
+         "Caesarean section" = "#7570b3")
+
+if (knitr::is_html_output()){
+  
+  plot <- ggplot(data = dta1,
+               aes(x = BrthYear,
+                   y = med,
+                   group = deliv,
+                   colour = deliv,
+                   fill = deliv,
+                   shape = deliv,
+                   text =paste(paste0(deliv," - ",BrthYear),
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               "<br> Median lenght of stay (in hours):" , scales::comma(med, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = deliv, fill = deliv, shape = deliv)) +
+  geom_line(aes(color = deliv, fill = deliv)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                     limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(21, 22, 23)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::comma_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = 'Median postpartum LoS (in hours)', x = '') +
+  theme_classic()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    align = "left",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = TRUE)
+  
+  } else if(is_latex_output()){
+    
+ggplot(data = dta1,
+               aes(x = BrthYear,
+                   y = med,
+                   group = deliv,
+                   colour = deliv,
+                   fill = deliv,
+                   shape = deliv,
+                   text =paste(paste0(deliv," - ",BrthYear),
+                               "<br>Total deliveries:", scales::comma(total, accuracy = 1),
+                               "<br> Median lenght of stay (in hours):" , scales::comma(med, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = deliv, fill = deliv, shape = deliv), 
+             size = 3) +
+  geom_line(aes(color = deliv, fill = deliv),
+            alpha = 0.65) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                     limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(21, 22, 23)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::comma_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = 'Median postpartum LoS (in hours)', x = 'Year') +
+  theme_classic() +
+  theme(strip.text.x = element_text( face = "bold", size = 10),
+          strip.background = element_blank(),
+          axis.title.x = element_text(face="bold", size = 10),
+          axis.title.y = element_text(face="bold", size = 10),
+          axis.text.x = element_text(face="bold", size = 8, color = "black"),
+          axis.text.y = element_text(face="bold", size = 8, color = "black"),
+          title = element_text(face="bold", size = 10, hjust = 0.5),
+          plot.title = element_text(hjust = 0.5),
+          # legend
+          legend.position = "bottom",
+          legend.text = element_text(face="bold", size = 8),
+          legend.title = element_text(face="bold", size = 8),
+          legend.justification = "center",
+          legend.box = "horizontal") +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE), linetype = guide_legend(nrow = 2, byrow = TRUE))
+  }
+```
+
+```{r tbl511}
+tbl <- dta[, .(BrthYear,
+     PPLoS,
+     DMMETHOD,
+     MOTHERID)] %>%
+  unique() %>%
+  .[!is.na(PPLoS)] %>%
+  .[, `:=` (deliv = fcase(
+      # spontaneous vaginal
+      tolower(DMMETHOD) %in% c("biv", "spt"), 1,
+      # assisted vaginal
+      tolower(DMMETHOD) %in% c("vac", "low", "mid"), 2,
+      # c-section
+      tolower(DMMETHOD) %in% c("cst"), 3,
+      default = 4
+    ))] %>%
+  .[!deliv %in% 4] %>%
+  .[, `:=` (total = .N,
+            mean = mean(PPLoS, na.rm = TRUE),
+            med = median(PPLoS, na.rm = TRUE)), by = list(BrthYear, deliv)] %>%
+  unique()
+
+tbl1 <- tbl %>%
+  .[deliv %in% 1] %>%
+  melt(measure.vars = c("total", "mean", "med")) %>%
+  .[, .(BrthYear, variable, value)] %>%
+  unique() %>%
+  dcast(variable ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl1)
+# coln[1] <- ""
+
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%.1f", "%.1f")))
+
+#names(tbl1) <- coln
+tbl1[,1] <- c("Total deliveries", "Mean (in hours)", "Median (in hours)")
+
+# add comma separator to total count
+tbl1[1,-1] <- as.character(sapply(as.numeric(tbl1[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Spontenaous vaginal", rep("", ncol(tbl1)-1))))
+names(temp) <- names(tbl1)
+
+tbl1 <- rbind(temp,tbl1)
+
+tbl2 <- tbl %>%
+  .[deliv %in% 2] %>%
+  melt(measure.vars = c("total", "mean", "med")) %>%
+  .[, .(BrthYear, variable, value)] %>%
+  unique() %>%
+  dcast(variable ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl2)
+# coln[1] <- ""
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%.1f", "%.1f")))
+
+#names(tbl2) <- coln
+tbl2[,1] <- c("Total deliveries", "Mean (in hours)", "Median (in hours)")
+
+# add comma separator to total count
+tbl2[1,-1] <- as.character(sapply(as.numeric(tbl2[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Assisted vaginal", rep("", ncol(tbl2)-1))))
+names(temp) <- names(tbl2)
+
+tbl2 <- rbind(temp,tbl2)
+
+tbl3 <- tbl %>%
+  .[deliv %in% 3] %>%
+  melt(measure.vars = c("total", "mean", "med")) %>%
+  .[, .(BrthYear, variable, value)] %>%
+  unique() %>%
+  dcast(variable ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl3)
+# coln[1] <- ""
+
+tbl3 <- as.data.frame(sapply(tbl3, sprintf, fmt = c("%.0f", "%.1f", "%.1f")))
+
+#names(tbl3) <- coln
+tbl3[,1] <- c("Total deliveries", "Mean (in hours)", "Median (in hours)")
+
+# add comma separator to total count
+tbl3[1,-1] <- as.character(sapply(as.numeric(tbl3[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Caesarean section", rep("", ncol(tbl3)-1))))
+names(temp) <- names(tbl3)
+
+tbl3 <- rbind(temp,tbl3)
+
+tbl <- setDT(rbind(tbl1,tbl2,tbl3))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-511"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-511",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          rowStyle = function(index){
+            if (index %in% (seq(1, nrow(tbl), by = 4))) list(
+              color = "black",
+              backgroundColor = "#E1E1E1",
+              fontWeight = "bold",
+              align = "center",
+              borderBottom = "#DDDDDD")
+          },
+          columns = list(
+            variable = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          ))
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(2,6),1] <- c("Total vaginal deliveries\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    kableExtra::row_spec(c(1,5,9), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position"))
+    # kableExtra::footnote(general = "One or more maternal transfusions of red blood cells in the antepartum, intrapartum, or postpartum periods.", threeparttable = TRUE)
+}
+```

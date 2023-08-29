@@ -1,0 +1,2083 @@
+---
+params:
+  year1: 2011
+  year2: 2020
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  message = FALSE, 
+  warning = FALSE,
+  fig.pos = "H", 
+  out.extra = "",
+  out.width = '90%',
+  fig.align = 'center',
+  eval.after = "fig.cap",
+  dev = "CairoPDF")
+
+pckgs <- c(
+  'tidyverse', 'knitr', 'scales','janitor',
+  'kableExtra','data.table','reactablefmtr',
+  'forcats','lubridate','anytime','reactable',
+  'htmltools', 'plotly','purrr','Cairo')
+# for (pp in `pckgs`) { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(pckgs, character.only = TRUE)
+## data input
+
+# add data
+dta <- arrow::read_parquet("data/NSAtleePD.parquet") %>%
+  collect() %>% 
+  setDT() %>%
+  .[data.table::between(BrthYear, params$year1, params$year2) &
+      ProvNo %in% 12 &
+      (BIRTHWT >= 500 | GA_BEST >= 20), ]
+
+source("utilities/plotLine.R")
+
+csvDownloadButton <- function(tableId, label = "Download (.csv)", filename = paste0(tableId,".csv")) {
+  htmltools::tags$button(
+    tagList(
+      fontawesome::fa("download"), label
+    ),
+    onclick = sprintf("Reactable.downloadDataCSV('%s', '%s')", tableId, filename),
+    style = "
+    background-color: #EBF3F2;
+    color: #00706E;
+    font-size: 14px;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;"
+  )
+}
+```
+
+<!-- # (PART) Deliveries and Births {-} -->
+  
+# Fetal and Infant Health Outcomes {#section-6}
+  
+## Low birth weight by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-61}
+  
+```{r plot61, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                BIRTHWT,
+                BTOUTCOM
+                )] %>%
+  .[, `:=` (lbw = fcase(
+    BIRTHWT < 1000, 1,
+    between(BIRTHWT, 1000, 1499), 2,
+    between(BIRTHWT, 1500, 2499), 3,
+    BIRTHWT >= 2500, 4,
+   default = 0
+    ))] %>%
+  .[!lbw %in% 0 &
+     # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, `:=` (count1 = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate1 = count1/dlv)] %>%
+  .[order(BrthYear, lbw)] %>%
+  .[,.(BrthYear, lbw, count1, dlv, rate1)] %>%
+  unique() %>%
+  .[,`:=` (count = cumsum(count1),
+           prop = cumsum(rate1)), by = list(BrthYear)]
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  lbw,
+  levels = c(1, 2, 3, 4),
+  labels = c("weight < 1000 g",
+             "weight < 1500 g",
+             "weight < 2500 g",
+             "weight \u2265 2500 g")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[!cat %in% c("weight \u2265 2500 g")], "prop", ylab = "Proportion of live births", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% c("weight \u2265 2500 g")], "prop", ylab = "Proportion of live births", yacc = 1)
+    }
+```
+
+```{r tbl61}
+tbl <- dta[, .(BrthYear,
+                BIRTHWT,
+               BTOUTCOM
+                )] %>%
+  .[, `:=` (lbw = fcase(
+    BIRTHWT < 1000, 1,
+    between(BIRTHWT, 1000, 1499), 2,
+    between(BIRTHWT, 1500, 2499), 3,
+    BIRTHWT >= 2500, 4,
+   default = 0
+    ))] %>%
+  .[!lbw %in% c(0) &
+     # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, `:=` (count1 = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate1 = 100*count1/total)] %>%
+  .[order(BrthYear, lbw)] %>%
+  .[,.(BrthYear, lbw, count1, total, rate1)] %>%
+  unique() %>%
+  .[,`:=` (count = cumsum(count1),
+           rate = cumsum(rate1)), by = list(BrthYear)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (lbw = fifelse(tolower(variable) %in% "total",
+                          0, lbw))] %>%
+  .[, .(BrthYear, lbw, value)] %>%
+  unique() %>%
+  .[!lbw %in% c(4)] %>%
+  dcast(lbw ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.2f%%", "%1.2f%%", "%1.2f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total live births\u1d43", "weight < 1000 g", "weight < 1500 g", "weight < 2500 g")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-61"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-61",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            lbw = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("\u1d43 With known birth weight.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(1),1] <- c("Total live births\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(alphabet = "With known birth weight.", threeparttable = TRUE)
+}
+```
+
+## Macrosomia by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-62}
+  
+```{r plot62, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                BIRTHWT,
+                BTOUTCOM
+                )] %>%
+  .[, `:=` (lbw = fcase(
+    BIRTHWT <= 4000, 1,
+    between(BIRTHWT, 4001, 4500), 2,
+    BIRTHWT > 4500, 3,
+   default = 0
+    ))] %>%
+  .[!lbw %in% 0 &
+     # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, `:=` (count1 = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate1 = count1/dlv)] %>%
+  .[order(BrthYear, desc(lbw))] %>%
+  .[,.(BrthYear, lbw, count1, dlv, rate1)] %>%
+  unique() %>%
+  .[,`:=` (count = cumsum(count1),
+           prop = cumsum(rate1)), by = list(BrthYear)]
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  lbw,
+  levels = c(1, 2, 3),
+  labels = c("weight \u2264 4000 g",
+             "weight > 4000 g",
+             "weight > 4500 g")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[!cat %in% c("weight \u2264 4000 g")], "prop", ylab = "Proportion of live births", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% c("weight \u2264 4000 g")], "prop", ylab = "Proportion of live births", yacc = 1)
+  }
+```
+
+```{r tbl62}
+tbl <- dta[, .(BrthYear,
+                BIRTHWT,
+               BTOUTCOM
+                )] %>%
+  .[, `:=` (lbw = fcase(
+    BIRTHWT <= 4000, 1,
+    between(BIRTHWT, 4001, 4500), 2,
+    BIRTHWT > 4500, 3,
+   default = 0
+    ))] %>%
+  .[!lbw %in% 0 &
+     # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, `:=` (count1 = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate1 = 100*count1/total)] %>%
+  .[order(BrthYear, desc(lbw))] %>%
+  .[,.(BrthYear, lbw, count1, total, rate1)] %>%
+  unique() %>%
+  .[,`:=` (count = cumsum(count1),
+           rate = cumsum(rate1)), by = list(BrthYear)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (lbw = fifelse(tolower(variable) %in% "total",
+                          0, lbw))] %>%
+  .[, .(BrthYear, lbw, value)] %>%
+  unique() %>%
+  .[!lbw %in% 1] %>%
+  dcast(lbw ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total live births\u1d43", "weight > 4000 g", "weight > 4500 g")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-62"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-62",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            lbw = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("\u1d43 With known birth weight.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(1),1] <- c("Total live births\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(alphabet = "With known birth weight.", threeparttable = TRUE)
+}
+```
+
+## Small for gestational age by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-63}
+  
+```{r plot63, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                Wgt4Age,
+                BTOUTCOM
+                )] %>%
+  .[!is.na(Wgt4Age) &
+    # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (lbw = fcase(
+    Wgt4Age %in% 1, 1,
+    Wgt4Age %in% c(2,3), 2,
+    Wgt4Age >= 4, 3,
+   default = 0
+    ))] %>%
+  .[, `:=` (count1 = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate1 = count1/dlv)] %>%
+  .[order(BrthYear, lbw)] %>%
+  .[,.(BrthYear, lbw, count1, dlv, rate1)] %>%
+  unique() %>%
+  .[,`:=` (count = cumsum(count1),
+           prop = cumsum(rate1)), by = list(BrthYear)]
+
+
+dta1 <- dta1[,
+            `:=` (cat = factor(
+              lbw,
+              levels = c(1, 2, 3),
+              labels = c("< 3\u02b3\u1d48 percentile",
+                         "< 10\u1d57\u02b0 percentile",
+                         "\u2265 10\u1d57\u02b0 percentile")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[!cat %in% c("\u2265 10\u1d57\u02b0 percentile")], "prop", ylab = "Proportion of live births", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% c("\u2265 10\u1d57\u02b0 percentile")], "prop", ylab = "Proportion of live births", yacc = 1)
+  }
+```
+
+```{r tbl63}
+tbl <- dta[, .(BrthYear,
+                Wgt4Age,
+                BTOUTCOM
+                )] %>%
+  .[!is.na(Wgt4Age) &
+    # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (lbw = fcase(
+    Wgt4Age %in% 1, 1,
+    Wgt4Age %in% c(2,3), 2,
+    Wgt4Age >= 4, 3,
+   default = 0
+    ) )] %>%
+  .[, `:=` (count1 = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate1 = 100*count1/total)] %>%
+  .[order(BrthYear, lbw)] %>%
+  .[,.(BrthYear, lbw, count1, total, rate1)] %>%
+  unique() %>%
+  .[,`:=` (count = cumsum(count1),
+           rate = cumsum(rate1)), by = list(BrthYear)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !lbw %in% c(3)] %>%
+  .[, `:=` (lbw = fifelse(tolower(variable) %in% "total",
+                          0, lbw))] %>%
+  .[, .(BrthYear, lbw, value)] %>%
+  unique() %>%
+  dcast(lbw ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total live births\u1d43", "< 3\u02b3\u1d48 percentile", "< 10\u1d57\u02b0 percentile")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-63"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-63",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            lbw = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("\u1d43 With known birth weight and gestational age.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source(
+    source = reactablefmtr::html("Note: Size for gestational age is based on sex-specific percentiles of birth weight for gestational age relative to a Canadian reference population [<a href='https://publications.aap.org/pediatrics/article/108/2/e35/63679/A-New-and-Improved-Population-Based-Canadian?autologincheck=redirected'> Ref: Kramer et al. A New and Improved Population-Based Canadian Reference for Birth Weight for Gestational Age. Pediatrics 2001; 108 (2):e35 </a>]."),
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+    ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(1,2,3),1] <- c("Total live births\\textsuperscript{a}",
+                       "< $3^{rd}$ percentile",
+                       "< $10^{th}$ percentile")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(alphabet = "With known birth weight.", 
+                         general = "Size for gestational age is based on sex-specific percentiles of birth weight for gestational age relative to a Canadian reference population \\\\href{https://publications.aap.org/pediatrics/article/108/2/e35/63679/A-New-and-Improved-Population-Based-Canadian?autologincheck=redirected'}{Ref: Kramer et al. A New and Improved Population-Based Canadian Reference for Birth Weight for Gestational Age. Pediatrics 2001; 108 (2):e35}.", threeparttable = TRUE, escape = FALSE)
+}
+```
+
+## Large for gestational age by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-64}
+  
+```{r plot64, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                Wgt4Age,
+                BTOUTCOM
+                )] %>%
+  .[!is.na(Wgt4Age) &
+    # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (lbw = fcase(
+    Wgt4Age <= 5 , 1,
+    Wgt4Age %in% c(6,7), 2,
+    Wgt4Age %in% 8, 3,
+   default = 0
+    ))] %>%
+  .[, `:=` (count1 = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate1 = count1/dlv)] %>%
+  .[order(BrthYear, desc(lbw))] %>%
+  .[,.(BrthYear, lbw, count1, dlv, rate1)] %>%
+  unique() %>%
+  .[,`:=` (count = cumsum(count1),
+           prop = cumsum(rate1)), by = list(BrthYear)]
+
+dta1 <- dta1[,
+            `:=` (cat = factor(
+              lbw,
+              levels = c(1, 2, 3),
+              labels = c("< 90\u1d57\u02b0 percentile",
+                         "\u2265 90\u1d57\u02b0 percentile",
+                         "\u2265 97\u1d57\u02b0 percentile")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[!cat %in% c("< 90\u1d57\u02b0 percentile")], "prop", ylab = "Proportion of live births", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% c("< 90\u1d57\u02b0 percentile")], "prop", ylab = "Proportion of live births", yacc = 1)
+  }
+```
+
+```{r tbl64}
+tbl <- dta[, .(BrthYear,
+                Wgt4Age,
+                BTOUTCOM
+                )] %>%
+  .[!is.na(Wgt4Age) &
+    # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (lbw = fcase(
+    Wgt4Age <= 5 , 1,
+    Wgt4Age %in% c(6,7), 2,
+    Wgt4Age %in% 8, 3,
+   default = 0
+    ))] %>%
+   .[, `:=` (count1 = .N), by = list(BrthYear, lbw)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate1 = 100*count1/total)] %>%
+  .[order(BrthYear, desc(lbw))] %>%
+  .[,.(BrthYear, lbw, count1, total, rate1)] %>%
+  unique() %>%
+  .[,`:=` (count = cumsum(count1),
+           rate = cumsum(rate1)), by = list(BrthYear)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !lbw %in% c(1)] %>%
+  .[, `:=` (lbw = fifelse(tolower(variable) %in% "total",
+                          0, lbw))] %>%
+  .[, .(BrthYear, lbw, value)] %>%
+  unique() %>%
+  dcast(lbw ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total live births\u1d43", "\u2265 90\u1d57\u02b0 percentile", "\u2265 97\u1d57\u02b0 percentile")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-64"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-64",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            lbw = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("\u1d43 With known birth weight and gestational age.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source(
+    source = reactablefmtr::html("Note: Size for gestational age is based on sex-specific percentiles of birth weight for gestational age relative to a Canadian reference population [<a href='https://publications.aap.org/pediatrics/article/108/2/e35/63679/A-New-and-Improved-Population-Based-Canadian?autologincheck=redirected'> Ref: Kramer et al. A New and Improved Population-Based Canadian Reference for Birth Weight for Gestational Age. Pediatrics 2001; 108 (2):e35 </a>]."),
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+    ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(1,2,3),1] <- c("Total live births\\textsuperscript{a}",
+                       "$\\geq 90^{th}$ percentile",
+                       "$\\geq 97^{th}$ percentile")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(alphabet = "With known birth weight.", 
+                         general = "Size for gestational age is based on sex-specific percentiles of birth weight for gestational age relative to a Canadian reference population \\\\href{https://publications.aap.org/pediatrics/article/108/2/e35/63679/A-New-and-Improved-Population-Based-Canadian?autologincheck=redirected'}{Ref: Kramer et al. A New and Improved Population-Based Canadian Reference for Birth Weight for Gestational Age. Pediatrics 2001; 108 (2):e35}.", threeparttable = TRUE, escape = FALSE)
+}
+```
+
+## Preterm births by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-65}
+  
+```{r plot65, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                GA_BEST,
+                BTOUTCOM
+                )] %>%
+  .[,`:=` (pret = fcase(
+    GA_BEST < 28, 1,
+    between(GA_BEST, 28, 31.999), 2,
+    between(GA_BEST, 32, 33.999), 3,
+    between(GA_BEST, 34, 36.999), 4,
+    GA_BEST >= 37, 5,
+   default = 0
+    ))] %>%
+  .[!pret %in% 0 &
+     # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, `:=` (count1 = .N), by = list(BrthYear, pret)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate1 = count1/dlv)] %>%
+  .[order(BrthYear, pret)] %>%
+  .[,.(BrthYear, pret, count1, dlv, rate1)] %>%
+  unique() %>%
+  .[,`:=` (count = cumsum(count1),
+           prop = cumsum(rate1)), by = list(BrthYear)]
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  pret,
+  levels = c(1, 2, 3, 4, 5),
+  labels = c("< 28 weeks",
+             "< 32 weeks",
+             "< 34 weeks",
+             "< 37 weeks",
+             "\u2265 37 weeks")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[!cat %in% c("\u2265 37 weeks")], "prop", ylab = "Proportion of live births", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% c("\u2265 37 weeks")], "prop", ylab = "Proportion of live births", yacc = 1)
+  }
+```
+
+```{r tbl65}
+tbl <- dta[, .(BrthYear,
+                GA_BEST,
+                BTOUTCOM
+                )] %>%
+  .[!is.na(GA_BEST) &
+    # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (pret = fcase(
+    GA_BEST < 28, 1,
+    between(GA_BEST, 28, 31.999), 2,
+    between(GA_BEST, 32, 33.999), 3,
+    between(GA_BEST, 34, 36.999), 4,
+    GA_BEST >= 37, 5,
+   default = 0
+    ))] %>%
+  .[!pret %in% 0 &
+     # live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, `:=` (count1 = .N), by = list(BrthYear, pret)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate1 = 100*count1/total)] %>%
+  .[order(BrthYear, pret)] %>%
+  .[,.(BrthYear, pret, count1, total, rate1)] %>%
+  unique() %>%
+  .[,`:=` (count = cumsum(count1),
+           rate = cumsum(rate1)), by = list(BrthYear)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !pret %in% 5] %>%
+  .[, `:=` (pret = fifelse(tolower(variable) %in% "total",
+                          -1, pret))] %>%
+  .[, .(BrthYear, pret, value)] %>%
+  unique() %>%
+  dcast(pret ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total live births\u1d43", "< 28 weeks", "< 32 weeks", "< 34 weeks", "< 37 weeks")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-65"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-65",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            pret = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("\u1d43 With known gestational age.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source("Note: The derivation of gestational age is primarily based on the date of the mother's last menstrual period (LMP). If LMP is unknown or LMP-estimated gestational age is discordant with that estimated by early fetal ultrasound measurements, then gestational age based on early fetal ultrasound measurements is used. If early fetal ultrasound measurements are unavailable and gestational age based on LMP is discordant from that clinically estimated by the neonatal physical exam, then the clinically estimated gestational age is used.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+    ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(1),1] <- c("Total live births\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(alphabet = "With known gestational age.", 
+                         general = "The derivation of gestational age is primarily based on the date of the mother's last menstrual period (LMP). If LMP is unknown or LMP-estimated gestational age is discordant with that estimated by early fetal ultrasound measurements, then gestational age based on early fetal ultrasound measurements is used. If early fetal ultrasound measurements are unavailable and gestational age based on LMP is discordant from that clinically estimated by the neonatal physical exam, then the clinically estimated gestational age is used.", threeparttable = TRUE)
+}
+```
+
+## Birth injury by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-66}
+  
+```{r plot66, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                R082_00100, R082_00200, R082_00300, R082_00400, R082_00500,
+                R084,
+                IP100, IP101, IP103, IP108,
+                IP132, IP1330, IP134, IP138,
+                IP140, IP143,
+                BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (clav = fcase(
+    R082_00100 >=1 | IP134 >=1, 1,
+   default = 0
+    ),
+   fem = fcase(
+    R082_00200 >=1 | IP132 >=1, 1,
+   default = 0
+    ),
+   hum = fcase(
+    R082_00300 >=1 | IP1330 >=1, 1,
+   default = 0
+    ),
+   oth = fcase(
+    R082_00400 >=1 | R082_00500 >=1 | IP138 >=1, 1,
+   default = 0
+    ),
+   cerebhem = fcase(
+    IP100 >=1 | IP101 >=1 | IP103 >=1 | IP108 >=1, 1,
+   default = 0
+    ),
+   brpalsy = fcase(
+    R084 >=1 | IP140 >=1 | IP143 >=1, 1,
+   default = 0
+    ))] %>%
+  .[,`:=` (trauma = fcase(
+    clav >=1 | fem >=1 | hum >=1 | oth >=1 | cerebhem >=1 | brpalsy >=1, 1,
+    default = 0
+  ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, trauma)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, trauma)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  trauma,
+  levels = c(0,1),
+  labels = c("No",
+             "Birth injury")))]
+
+if (knitr::is_html_output()){
+  
+plot_line(dta1[!cat %in% c("No")], "prop", ylab = "Proportion of live births", yacc = 0.01)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% c("No")], "prop", ylab = "Proportion of live births", yacc = 0.1)
+  }
+```
+
+```{r tbl66}
+tbl <- dta[, .(BrthYear,
+                R082_00100, R082_00200, R082_00300, R082_00400, R082_00500,
+                R084,
+                IP100, IP101, IP103, IP108,
+                IP132, IP1330, IP134, IP138,
+                IP140, IP143,
+                BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (clav = fcase(
+    R082_00100 >=1 | IP134 >=1, 1,
+   default = 0
+    ),
+   fem = fcase(
+    R082_00200 >=1 | IP132 >=1, 1,
+   default = 0
+    ),
+   hum = fcase(
+    R082_00300 >=1 | IP1330 >=1, 1,
+   default = 0
+    ),
+   oth = fcase(
+    R082_00400 >=1 | R082_00500 >=1 | IP138 >=1, 1,
+   default = 0
+    ),
+   cerebhem = fcase(
+    IP100 >=1 | IP101 >=1 | IP103 >=1 | IP108 >=1, 1,
+   default = 0
+    ),
+   brpalsy = fcase(
+    R084 >=1 | IP140 >=1 | IP143 >=1, 1,
+   default = 0
+    ))] %>%
+  .[,`:=` (trauma = fcase(
+    clav >=1 | fem >=1 | hum >=1 | oth >=1 | cerebhem >=1 | brpalsy >=1, 1,
+    default = 0
+  ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, trauma)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !trauma %in% 0 ] %>%
+  .[, `:=` (trauma = fifelse(tolower(variable) %in% "total",
+                               -1, trauma))] %>%
+  .[, .(BrthYear, trauma, value)] %>%
+  unique() %>%
+  dcast(trauma ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.2f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total live births", "Birth injury (%)")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-66"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-66",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            trauma = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("Note: Any injury to the infant occurring during delivery such as fracture (e.g., femur, clavicle, rib, humerus, depressed skull) or central nervous system trauma (e.g., cerebral hemorrhage, spinal cord hemorrhage, brachial plexus palsy).",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+    ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(1),1] <- c("Total live births\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = "Any injury to the infant occurring during delivery such as fracture (e.g., femur, clavicle, rib, humerus, depressed skull) or central nervous system trauma (e.g., cerebral hemorrhage, spinal cord hemorrhage, brachial plexus palsy).", threeparttable = TRUE)
+}
+```
+
+## Phototherapy by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-67}
+  
+```{r plot67, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+               R078_00100,
+               I_1YZ12JADQ,
+               BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (photot = fcase(
+    R078_00100 >=1 | I_1YZ12JADQ >=1, 1,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, photot)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, photot)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  photot,
+  levels = c(0,1),
+  labels = c("No",
+             "Received phototerapy")))]
+
+if (knitr::is_html_output()){
+  
+plot_line(dta1[!cat %in% c("No")], "prop", ylab = "Proportion of live births", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% c("No")], "prop", ylab = "Proportion of live births", yacc = 1)
+  }
+```
+
+```{r tbl67}
+tbl <- dta[, .(BrthYear,
+               R078_00100,
+               I_1YZ12JADQ,
+               BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (photot = fcase(
+    R078_00100 >=1 | I_1YZ12JADQ >=1, 1,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, photot)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !photot %in% 0 ] %>%
+  .[, `:=` (photot = fifelse(tolower(variable) %in% "total",
+                               0, photot))] %>%
+  .[, .(BrthYear, photot, value)] %>%
+  unique() %>%
+  dcast(photot ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total live births", "Received phototerapy (%)")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-67"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-67",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            photot = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("Note: Phototherapy involves exposure of the neonate to coloured light in hospital (birth hospital or readmission in the neonatal period). It is given for known or suspected hyperbilirubinemia (jaundice).",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+    ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(1),1] <- c("Total live births\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = "Phototherapy involves exposure of the neonate to coloured light in hospital (birth hospital or readmission in the neonatal period). It is given for known or suspected hyperbilirubinemia (jaundice).", threeparttable = TRUE)
+}
+```
+
+## Type of respiratory distress syndrome by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-68}
+  
+```{r plot68, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+               R059_00200, R059_00300, R059_00400, R059_00500, R059_00600,
+               IP220, IP221,
+               BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (rds = fcase(
+    R059_00200 >=1, 1,
+    R059_00300 >=1, 2,
+    R059_00400 >=1, 3,
+    R059_00600 >=1, 4,
+    R059_00500 >=1 | !(R059_00200 >=1 | R059_00300 >=1 | R059_00400 >=1 | R059_00600 >=1) & (IP220 >=1 | IP221 >=1), 5,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, rds)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, rds)] %>%
+  setDT() %>% 
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  rds,
+  levels = c(0,1,2,3,4,5),
+  labels = c("No",
+             "Mild",
+             "Moderate",
+             "Severe",
+             "TTN",
+             "Unknown severity")))]
+
+dta1 <- tidyr::complete(
+  dta1,
+  BrthYear,
+  nesting(cat, rds),
+  fill = list(prop = 0,
+              dlv = 0)) %>% 
+  setDT()
+
+if (knitr::is_html_output()){
+  
+plot_line(dta1[!cat %in% c("No")], "prop", ylab = "Proportion of live births", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% c("No")], "prop", ylab = "Proportion of live births", yacc = 0.1)
+  }
+```
+
+```{r tbl68}
+tbl <- dta[, .(BrthYear,
+               R059_00200, R059_00300, R059_00400, R059_00500, R059_00600,
+               IP220, IP221,
+               BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (rds = fcase(
+    R059_00200 >=1, 1,
+    R059_00300 >=1, 2,
+    R059_00400 >=1, 3,
+    R059_00600 >=1, 4,
+    R059_00500 >=1 | !(R059_00200 >=1 | R059_00300 >=1 | R059_00400 >=1 | R059_00600 >=1) & (IP220 >=1 | IP221 >=1), 5,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, rds)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !rds %in% 0 ] %>%
+  .[, `:=` (rds = fifelse(tolower(variable) %in% "total",
+                               0, rds))] %>%
+  .[, .(BrthYear, rds, value)] %>%
+  unique() %>%
+  dcast(rds ~ BrthYear, value.var = "value", fill = 0)
+
+temp <- sapply(tbl[-1,], sum)
+tbl <- setDT(rbind(tbl, t(as.data.frame(temp))))
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.2f%%", "%1.2f%%", "%1.2f%%", "%1.2f%%", "%1.2f%%", "%1.2f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total live births", "Mild", "Moderate", "Severe", "TTN\u1d43", "Unknown severity", "Total RDS")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-68"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-68",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          rowStyle = function(index){
+            if (index == nrow(tbl)) list(
+              color = "black",
+              backgroundColor = "#E1E1E1",
+              fontWeight = "bold",
+              align = "center",
+              borderBottom = "#DDDDDD")
+          },
+          columns = list(
+            rds = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("\u1d43 TTN = Transient tachypnea of the newborn.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source("Note: Respiratory distress syndrome (RDS) is identified by neonatal grunting, retractions, and decreased air entry that occur before 3 hours of age, persist beyond 6 hours of age, and are not explained by any other disease. Severity is categorized by the treatment given by the physician as noted in the medical record: mild, < 35% oxygen; moderate, 35% oxygen or continuous positive airway pressure (CPAP); severe, ventilated. Note that as medical practice changes with respect to the type of treatment given, the proportion of RDS that is of unknown severity may increase.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+    ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(5),1] <- c("TTN\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE, escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    kableExtra::row_spec(c(7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = "Respiratory distress syndrome (RDS) is identified by neonatal grunting, retractions, and decreased air entry that occur before 3 hours of age, persist beyond 6 hours of age, and are not explained by any other disease. Severity is categorized by the treatment given by the physician as noted in the medical record: mild, < 35% oxygen; moderate, 35% oxygen or continuous positive airway pressure (CPAP); severe, ventilated. Note that as medical practice changes with respect to the type of treatment given, the proportion of RDS that is of unknown severity may increase.",
+                         alphabet = "TTN = Transient tachypnea of the newborn.", threeparttable = TRUE)
+}
+```
+
+## Neonatal sepsis by birth weight and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-69}
+  
+```{r plot69, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+               IA879,
+               IG00, IG020,
+               IP36, IP3751,
+               BIRTHWT,
+               BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (sep = fcase(
+    IA879 >=1 | IG00 >=1 | IG020 >=1 | IP36 >=1 | IP3751 >=1, 1,
+   default = 0
+    ),
+    wght = fcase(
+    BIRTHWT < 1000, 1,
+    between(BIRTHWT, 1000, 2499), 2,
+    BIRTHWT >= 2500, 3,
+   default = 0
+   ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, sep, wght)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, wght)] %>%
+  .[, `:=` (rate = count/total)] %>%
+  .[,.(BrthYear, rate, total, wght, sep)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (sep = factor(
+  sep,
+  levels = c(0,1),
+  labels = c("No",
+             "Yes")),
+                     wght = factor(
+  wght,
+  levels = c(0,1,2,3),
+  labels = c("No",
+             "weight < 1000 g",
+             "1000 g \u2264 weight < 2500 g",
+             "weight \u2265 2500 g")))]
+
+## getting color for plotting
+
+pal <- c("No" = "#1b9e77",
+         "Yes" = "#008D8B")
+
+if (knitr::is_html_output()){
+plot <- ggplot(data = dta1[!sep %in% "No" & !wght %in% "No"][,.(BrthYear, rate, sep, total, wght)],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = sep,
+                   colour = sep,
+                   fill = sep,
+                   #shape = sep,
+                   text =paste(paste0(BrthYear),
+                               "<br>Total live births:", scales::comma(total, accuracy = 1),
+                               paste0("<br>",sep," (%):") , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = sep, fill = sep)) +
+  geom_line(aes(color = sep, fill = sep)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  # scale_shape_manual(name = "",
+  #                    values = c(15, 16, 17, 18, 19)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = .1),
+    limits = c(0, NA)) +
+  labs(y = 'Proportion of live births', x = '') +
+  facet_wrap(~wght, ncol = 2, scales = "free") +
+  theme_classic() +
+  theme(panel.spacing.y = unit(2,"lines"),
+        panel.spacing.x = unit(2,"lines"),
+        panel.background = element_blank(), 
+        panel.border = element_blank(), 
+        strip.background = element_blank(), 
+        plot.background = element_blank(),
+        axis.title.x = element_text(face="bold", size = 10),
+          axis.title.y = element_text(face="bold", size = 10, margin = unit(c(0, 3, 0, 0), "mm")),
+          axis.text.x = element_text(face="bold", size = 8, color = "black"),
+          axis.text.y = element_text(face="bold", size = 8, color = "black"))
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    align = "left",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10),
+                 showlegend = FALSE)
+  } else if(is_latex_output()){
+    
+ggplot(data = dta1[!sep %in% "No" & !wght %in% "No"][,.(BrthYear, rate, sep, total, wght)],
+               aes(x = BrthYear,
+                   y = rate,
+                   group = sep,
+                   colour = sep,
+                   fill = sep,
+                   #shape = sep,
+                   text =paste(paste0(BrthYear),
+                               "<br>Total live births:", scales::comma(total, accuracy = 1),
+                               paste0("<br>",sep," (%):") , scales::percent(rate, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = sep, fill = sep), show.legend = FALSE) +
+  geom_line(aes(color = sep, fill = sep),
+            show.legend = FALSE) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  # scale_shape_manual(name = "",
+  #                    values = c(15, 16, 17, 18, 19)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::percent_format(accuracy = .01),
+    limits = c(0, NA)) +
+  labs(y = 'Proportion of live births', x = 'Year') +
+  facet_wrap(~wght, ncol = 2, scales = "free") +
+  theme_classic() +
+  theme(panel.spacing.y = unit(2,"lines"),
+        panel.spacing.x = unit(2,"lines"),
+        panel.background = element_blank(), 
+        panel.border = element_blank(), 
+        strip.background = element_blank(), 
+        plot.background = element_blank(),
+        axis.title.x = element_text(face="bold", size = 10),
+          axis.title.y = element_text(face="bold", size = 10, margin = unit(c(0, 3, 0, 0), "mm")),
+          axis.text.x = element_text(face="bold", size = 8, color = "black"),
+          axis.text.y = element_text(face="bold", size = 8, color = "black"),
+        # legend
+          legend.position = "bottom",
+          legend.text = element_text(face="bold", size = 8),
+          legend.title = element_blank(),
+          legend.justification = "center")
+  }
+```
+
+```{r tbl69}
+tbl <- dta[, .(BrthYear,
+               IA879,
+               IG00, IG020,
+               IP36, IP3751,
+               BIRTHWT,
+               BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[,`:=` (sep = fcase(
+    IA879 >=1 | IG00 >=1 | IG020 >=1 | IP36 >=1 | IP3751 >=1, 1,
+   default = 0
+    ),
+    wght = fcase(
+    BIRTHWT < 1000, 1,
+    between(BIRTHWT, 1000, 2499), 2,
+    BIRTHWT >= 2500, 3,
+   default = 0
+   ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, sep, wght)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, wght)] %>%
+  .[, `:=` (rate = 100*count/total)]
+
+tbl1 <- tbl %>%
+  .[sep %in% 1 &
+    wght %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !sep %in% 0 ] %>%
+  .[, `:=` (sep = fifelse(tolower(variable) %in% "total",
+                               0, sep))] %>%
+  .[, .(BrthYear, sep, value)] %>%
+  unique() %>%
+  dcast(sep ~ BrthYear, value.var = "value")
+
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%")))
+
+tbl1[,1] <- c("Total live births", "Neonatal sepsis (%)")
+
+# add comma separator to total count
+tbl1[1,-1] <- as.character(sapply(as.numeric(tbl1[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("weight < 1000 g", rep("", ncol(tbl1)-1))))
+names(temp) <- names(tbl1)
+
+tbl1 <- rbind(temp,tbl1)
+
+tbl2 <- tbl %>%
+  .[sep %in% 1 &
+    wght %in% 2] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !sep %in% 0 ] %>%
+  .[, `:=` (sep = fifelse(tolower(variable) %in% "total",
+                               0, sep))] %>%
+  .[, .(BrthYear, sep, value)] %>%
+  unique() %>%
+  dcast(sep ~ BrthYear, value.var = "value")
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%")))
+
+tbl2[,1] <- c("Total live births", "Neonatal sepsis (%)")
+
+# add comma separator to total count
+tbl2[1,-1] <- as.character(sapply(as.numeric(tbl2[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("1000 g \u2264 weight < 2500 g", rep("", ncol(tbl2)-1))))
+names(temp) <- names(tbl2)
+
+tbl2 <- rbind(temp,tbl2)
+
+tbl3 <- tbl %>%
+  .[sep %in% 1 &
+    wght %in% 3] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !sep %in% 0 ] %>%
+  .[, `:=` (sep = fifelse(tolower(variable) %in% "total",
+                               0, sep))] %>%
+  .[, .(BrthYear, sep, value)] %>%
+  unique() %>%
+  dcast(sep ~ BrthYear, value.var = "value")
+
+tbl3 <- as.data.frame(sapply(tbl3, sprintf, fmt = c("%.0f", "%1.2f%%")))
+
+tbl3[,1] <- c("Total live births", "Neonatal sepsis (%)")
+
+# add comma separator to total count
+tbl3[1,-1] <- as.character(sapply(as.numeric(tbl3[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("weight \u2265 2500 g", rep("", ncol(tbl3)-1))))
+names(temp) <- names(tbl3)
+
+tbl3 <- rbind(temp,tbl3)
+
+tbl <- setDT(rbind(tbl1, tbl2, tbl3))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-69"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-69",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          rowStyle = function(index){
+            if (index %in% (seq(1, nrow(tbl), by = 3))) list(
+              color = "black",
+              backgroundColor = "#E1E1E1",
+              fontWeight = "bold",
+              align = "center",
+              borderBottom = "#DDDDDD")
+          },
+          columns = list(
+            sep = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("Note: Pneumonia, either intrauterine or postnatal, or positive blood/cerebrospinal fluid cultures.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+    ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- "Birth weight"
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(4,7),1] <- c(
+    "1000 g $\\leq$ weight < 2500 g",
+    "weight $\\geq$ 2500 g")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = "Pneumonia, either intrauterine or postnatal, or positive blood/cerebrospinal fluid cultures.", threeparttable = TRUE)
+}
+```
+
+## Newborn length of stay (in days) by birth weight and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-610}
+
+```{r plot610, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                Infant_LoS,
+                DIFINOUT,
+                BIRTHWT
+                )] %>%
+  .[# discharged babies alive
+    DIFINOUT %in% "LVD"] %>%
+  .[,`:=` (wght = fcase(
+    BIRTHWT < 1000, 1,
+    between(BIRTHWT, 1000, 2499), 2,
+    BIRTHWT >= 2500, 3,
+   default = 0
+   ))] %>%
+  .[, `:=` (total = .N,
+            # /24 - convert to days
+            mean = mean(Infant_LoS/24, na.rm = TRUE),
+            med = median(Infant_LoS/24, na.rm = TRUE)), by = list(BrthYear, wght)] %>%
+  .[!wght %in% "No"] %>%
+  .[,.(BrthYear, med, wght, total)] %>%
+  unique()
+
+dta1 <- dta1[, `:=` (wght = factor(
+  wght,
+  levels = c(0,1,2,3),
+  labels = c("No",
+             "weight < 1000 g",
+             "1000 g \u2264 weight < 2500 g",
+             "weight \u2265 2500 g")))]
+
+## getting color for plotting
+
+pal <- c(#"No" = "#E7298A",
+         "weight < 1000 g" = "#1B9E77",
+         "1000 g \u2264 weight < 2500 g" = "#D95F02",
+         "weight \u2265 2500 g" = "#7570B3")
+
+if (knitr::is_html_output()){
+
+plot <- ggplot(data = dta1[!wght %in% "No"][,.(BrthYear, med, wght, total)],
+               aes(x = BrthYear,
+                   y = med,
+                   group = wght,
+                   colour = wght,
+                   fill = wght,
+                   shape = wght,
+                   text = paste(paste0(wght," - ", BrthYear),
+                               "<br>Total live births:", scales::comma(total, accuracy = 1),
+                               "<br>Median lenght of stay (in days):" , scales::comma(med, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = wght, fill = wght, shape = wght)) +
+  geom_line(aes(color = wght, fill = wght)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(21, 22, 23)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::comma_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = 'Median neonatal LoS (in days)', x = '') +
+  theme_classic()
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    align  = "left",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10))
+
+plotly::ggplotly(plot, tooltip = c("text")) %>%
+  plotly::style(hoverlabel = list(
+    bgcolor  = "black",
+    bordercolor = "transparent",
+    align = "left",
+    font = list(
+      color = "white",
+      size = 14,
+      face = "bold"
+    )
+  )) %>%
+  plotly::layout(legend = list(orientation = "h", y = -0.25, x = 0.5,
+                               xanchor = "center"),
+                 font = list(face = "bold", size = 10))
+  
+  } else if(is_latex_output()){
+    
+ggplot(data = dta1[!wght %in% "No"][,.(BrthYear, med, wght, total)],
+               aes(x = BrthYear,
+                   y = med,
+                   group = wght,
+                   colour = wght,
+                   fill = wght,
+                   shape = wght,
+                   text = paste(paste0(wght," - ", BrthYear),
+                               "<br>Total live births:", scales::comma(total, accuracy = 1),
+                               "<br>Median lenght of stay (in days):" , scales::comma(med, accuracy = .1)
+                   )
+               )
+) +
+  geom_point(aes(color = wght, fill = wght, shape = wght)) +
+  geom_line(aes(color = wght, fill = wght)) +
+  # Specifying colors by age group
+  scale_color_manual(name = "",
+                     values = pal,
+                     limits = names(pal)) +
+  scale_fill_manual(name = "",
+                    values = pal,
+                    limits = names(pal)) +
+  scale_shape_manual(name = "",
+                     values = c(21, 22, 23)) +
+  # scale_x_date(date_breaks = "2 years",
+  #              date_labels = "%Y") +
+  scale_x_continuous(#trans = 'log2',
+    breaks = pretty) +
+  scale_y_continuous(#trans = 'log2',
+    breaks = pretty,
+    labels = scales::comma_format(accuracy = 1),
+    limits = c(0, NA)) +
+  labs(y = 'Median neonatal LoS (in days)', x = 'Year') +
+  theme_classic() +
+  theme(strip.text.x = element_text( face = "bold", size = 10),
+          strip.background = element_blank(),
+          axis.title.x = element_text(face="bold", size = 10),
+          axis.title.y = element_text(face="bold", size = 10),
+          axis.text.x = element_text(face="bold", size = 8, color = "black"),
+          axis.text.y = element_text(face="bold", size = 8, color = "black"),
+          title = element_text(face="bold", size = 10, hjust = 0.5),
+          plot.title = element_text(hjust = 0.5),
+          # legend
+          legend.position = "bottom",
+          legend.text = element_text(face="bold", size = 8),
+          legend.title = element_text(face="bold", size = 8),
+          legend.justification = "center",
+          legend.box = "horizontal") +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE), linetype = guide_legend(nrow = 2, byrow = TRUE))
+  }
+```
+
+```{r tbl610}
+tbl <- dta[, .(BrthYear,
+                Infant_LoS,
+                DIFINOUT,
+                BIRTHWT
+                )] %>%
+  .[# discharged babies alive
+    DIFINOUT %in% "LVD"] %>%
+  .[,`:=` (wght = fcase(
+    BIRTHWT < 1000, 1,
+    between(BIRTHWT, 1000, 2499), 2,
+    BIRTHWT >= 2500, 3,
+   default = 0
+   ))] %>%
+  .[, `:=` (total = .N,
+            # /24 - convert to days
+            mean = mean(Infant_LoS/24, na.rm = TRUE),
+            med = median(Infant_LoS/24, na.rm = TRUE)), by = list(BrthYear, wght)] %>%
+  unique() %>%
+  melt(measure.vars = c("total", "mean", "med")) %>%
+   .[!wght %in% 0 ] %>%
+  # .[, `:=` (wght = fifelse(tolower(variable) %in% "total",
+  #                              0, wght))] %>%
+  .[, .(BrthYear, wght, variable, value)] %>%
+  unique() 
+
+tbl1 <- tbl %>%
+  .[wght %in% 1] %>%
+  dcast(variable ~ BrthYear, value.var = "value")
+
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%.1f", "%.1f")))
+
+tbl1[,1] <- c("Total births\u1d43", "Mean (in days)", "Median (in days)")
+
+# add comma separator to total count
+tbl1[1,-1] <- as.character(sapply(as.numeric(tbl1[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("weight < 1000 g", rep("", ncol(tbl1)-1))))
+names(temp) <- names(tbl1)
+
+tbl1 <- rbind(temp,tbl1)
+
+tbl2 <- tbl %>%
+  .[wght %in% 2] %>%
+  dcast(variable ~ BrthYear, value.var = "value")
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%.1f", "%.1f")))
+
+tbl2[,1] <- c("Total births\u1d43", "Mean (in days)", "Median (in days)")
+
+# add comma separator to total count
+tbl2[1,-1] <- as.character(sapply(as.numeric(tbl2[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("1000 g \u2264 weight < 2500 g", rep("", ncol(tbl2)-1))))
+names(temp) <- names(tbl2)
+
+tbl2 <- rbind(temp,tbl2)
+
+tbl3 <- tbl %>%
+  .[wght %in% 3] %>%
+  dcast(variable ~ BrthYear, value.var = "value")
+
+tbl3 <- as.data.frame(sapply(tbl3, sprintf, fmt = c("%.0f", "%.1f", "%.1f")))
+
+tbl3[,1] <- c("Total births\u1d43", "Mean (in days)", "Median (in days)")
+
+# add comma separator to total count
+tbl3[1,-1] <- as.character(sapply(as.numeric(tbl3[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("weight \u2265 2500 g", rep("", ncol(tbl3)-1))))
+names(temp) <- names(tbl3)
+
+tbl3 <- rbind(temp,tbl3)
+
+tbl <- setDT(rbind(tbl1, tbl2, tbl3))
+
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-610"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-610",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          rowStyle = function(index){
+            if (index %in% (seq(1, nrow(tbl), by = 4))) list(
+              color = "black",
+              backgroundColor = "#E1E1E1",
+              fontWeight = "bold",
+              align = "center",
+              borderBottom = "#DDDDDD")
+          },
+          columns = list(
+            variable = colDef(
+              name = "Birth weight",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("\u1d43 Number of births of infants who survived to hospital discharge.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+    ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- "Birth weight"
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(2,5,6,9,10),1] <- c(
+    "Total births\\textsuperscript{a}",
+    "1000 g $\\leq$ weight < 2500 g",
+    "Total births\\textsuperscript{a}",
+    "weight $\\geq$ 2500 g",
+    "Total births\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    kableExtra::row_spec(c(1,5,9), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(alphabet = "Number of births of infants who survived to hospital discharge.", threeparttable = TRUE)
+}
+```
+
+## Neonatal withdrawal from maternal use of opioids by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-611}
+  
+```{r plot611, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                R067,
+                IP961,
+                R004_00700, R004_00710, R004_00720, R004_00730,
+                R005_00400,R005_00500, R005_00600, R005_00800, R005_01100, R005_01600,
+                MF11,
+                BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, nas := rowSums(.SD, na.rm = TRUE), .SDcols = c("R067", "IP961")] %>%
+  .[, mum := rowSums(.SD, na.rm = TRUE), .SDcols = c("R004_00700", "R004_00710", "R004_00720", "R004_00730", "R005_00400", "R005_00500", "R005_00600", "R005_00800", "R005_01100", "R005_01600", "MF11")] %>%
+  .[,`:=` (nas_opi = fcase(
+    nas >=1, 1,
+   default = 0
+    ),
+   mum_opi = fcase(
+     mum >=1, 1,
+     default = 0
+   ))] %>%
+  .[,`:=` (noas = fcase(
+    nas_opi >=1 & mum_opi >= 1, 1,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, noas)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, noas)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  noas,
+  levels = c(0,1),
+  labels = c("No",
+             "Neonatal withdrawal")))]
+
+if (knitr::is_html_output()){
+  
+plot_line(dta1[!cat %in% c("No")], "prop", ylab = "Proportion of live births", yacc = 0.01)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% c("No")], "prop", ylab = "Proportion of live births", yacc = 0.1)
+  }
+```
+
+```{r tbl611}
+tbl <- dta[, .(BrthYear,
+                R067,
+                IP961,
+                R004_00700, R004_00710, R004_00720, R004_00730,
+                R005_00400,R005_00500, R005_00600, R005_00800, R005_01100, R005_01600,
+                MF11,
+                BTOUTCOM
+                )] %>%
+  .[# live births 
+    !BTOUTCOM %in% "FTD"] %>%
+  .[, nas := rowSums(.SD, na.rm = TRUE), .SDcols = c("R067", "IP961")] %>%
+  .[, mum := rowSums(.SD, na.rm = TRUE), .SDcols = c("R004_00700", "R004_00710", "R004_00720", "R004_00730", "R005_00400", "R005_00500", "R005_00600", "R005_00800", "R005_01100", "R005_01600", "MF11")] %>%
+  .[,`:=` (nas_opi = fcase(
+    nas >=1, 1,
+   default = 0
+    ),
+   mum_opi = fcase(
+     mum >=1, 1,
+     default = 0
+   ))] %>%
+  .[,`:=` (noas = fcase(
+    nas_opi >=1 & mum_opi >= 1, 1,
+   default = 0
+    ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, noas)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !noas %in% 0 ] %>%
+  .[, `:=` (noas = fifelse(tolower(variable) %in% "total",
+                               0, noas))] %>%
+  .[, .(BrthYear, noas, value)] %>%
+  unique() %>%
+  dcast(noas ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.2f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total live births", "Neonatal withdrawal")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-611"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-611",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            noas = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("Note: Neonatal withdrawal symptoms from maternal dependency on opioid drugs. Does not include neonatal reactions from opioid
+# drugs administered to the mother during labour or delivery.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+    ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = "Neonatal withdrawal symptoms from maternal dependency on opioid drugs. Does not include neonatal reactions from opioid drugs administered to the mother during labour or delivery.", threeparttable = TRUE)
+}
+```

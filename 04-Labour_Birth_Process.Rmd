@@ -1,0 +1,2677 @@
+---
+params:
+  year1: 2011
+  year2: 2020
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  message = FALSE, 
+  warning = FALSE,
+  fig.pos = "H", 
+  out.extra = "",
+  out.width = '100%',
+  fig.align = 'center',
+  eval.after = "fig.cap",
+  dev = "CairoPDF")
+
+pckgs <- c(
+  'tidyverse', 'knitr', 'scales','janitor',
+  'kableExtra','data.table','reactablefmtr',
+  'forcats','lubridate','anytime','reactable',
+  'htmltools', 'plotly','purrr',"Cairo")
+# for (pp in `pckgs`) { if (!require(pp)) install.packages(pp); library(pp, character.only = T)  }
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(pckgs, character.only = TRUE)
+## data input
+
+# add data
+dta <- arrow::read_parquet("data/NSAtleePD.parquet") %>%
+  collect() %>% 
+  setDT() %>%
+  .[data.table::between(BrthYear, params$year1, params$year2) &
+    ProvNo %in% 12 &
+    (BIRTHWT >= 500 | GA_BEST >= 20), ]
+
+source("utilities/plotLine.R")
+
+csvDownloadButton <- function(tableId, label = "Download (.csv)", filename = paste0(tableId,".csv")) {
+  htmltools::tags$button(
+    tagList(
+      fontawesome::fa("download"), label
+    ),
+    onclick = sprintf("Reactable.downloadDataCSV('%s', '%s')", tableId, filename),
+    style = "
+    background-color: #EBF3F2;
+    color: #00706E;
+    font-size: 14px;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;"
+  )
+}
+```
+
+<!-- # (PART) Deliveries and Births {-} -->
+
+# Labour and Birth Processes {#section-4}
+
+## Labour induction by parity and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-41}
+
+```{r plot41, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+               LABOUR,
+               FAILED_INDUCTION,
+               DLPARA,
+               CONTCTID)] %>%
+  unique() %>%
+  .[!is.na(DLPARA) &
+    !is.na(LABOUR) &
+    !is.na(FAILED_INDUCTION)] %>%
+  .[, `:=` (ind = fcase(
+    tolower(LABOUR) %in% "i" | tolower(FAILED_INDUCTION) %in% "y", 1,
+    default = 0
+    ),
+    parity = fcase(
+    DLPARA %in% 0 , 1,
+    DLPARA %in% 1, 2,
+    default = 3
+    ))] %>%
+  .[order(BrthYear, parity, ind)] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, parity, ind)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear, parity)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, ind, parity)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (ind = factor(
+  ind,
+  levels = c(0,1),
+  labels = c("No",
+             "Induction attempted")),
+                     cat = factor(
+  parity,
+  levels = c(1,2,3),
+  labels = c("0",
+             "1",
+             "\u2265 2")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[!ind %in% c("No")], "prop", ylab = "Proportion of deliveries", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!ind %in% c("No")], "prop", ylab = "Proportion of deliveries", yacc = 1)
+    }
+```
+
+```{r tbl41}
+tbl <- dta[, .(BrthYear,
+               LABOUR,
+               FAILED_INDUCTION,
+               DLPARA)] %>%
+  .[!is.na(DLPARA) &
+    !is.na(LABOUR) &
+    !is.na(FAILED_INDUCTION)] %>%
+  .[, `:=` (ind = fcase(
+    tolower(LABOUR) %in% "i" | tolower(FAILED_INDUCTION) %in% "y", 1,
+    default = 0
+    ),
+    parity = fcase(
+    DLPARA %in% 0 , 1,
+    DLPARA %in% 1, 2,
+    default = 3
+    ))] %>%
+  .[order(BrthYear, parity, ind)] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, parity, ind)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, parity)] %>%
+  .[, `:=` (rate = 100*count/total)] 
+
+tbl1 <- tbl %>%
+  .[parity %in% 1 & ind %in% 1] %>%
+ melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (ind = fifelse(tolower(variable) %in% "total",
+                               0, ind))] %>%
+  .[, .(BrthYear, ind, value)] %>%
+  unique() %>%
+  dcast(ind ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl1)
+# coln[1] <- ""
+
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl1) <- coln
+
+tbl1[,1] <- c("Total deliveries", "Induction attempted (%)")
+
+# add comma separator to total count
+tbl1[1,-1] <- as.character(sapply(as.numeric(tbl1[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("0", rep("", ncol(tbl1)-1))))
+names(temp) <- names(tbl1)
+
+tbl1 <- rbind(temp,tbl1)
+
+tbl2 <- tbl %>%
+  .[parity %in% 2 & ind %in% 1] %>%
+ melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (ind = fifelse(tolower(variable) %in% "total",
+                               0, ind))] %>%
+  .[, .(BrthYear, ind, value)] %>%
+  unique() %>%
+  dcast(ind ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl2)
+# coln[1] <- ""
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl2) <- coln
+
+tbl2[,1] <- c("Total deliveries", "Induction attempted (%)")
+
+# add comma separator to total count
+tbl2[1,-1] <- as.character(sapply(as.numeric(tbl2[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("1", rep("", ncol(tbl2)-1))))
+names(temp) <- names(tbl2)
+
+tbl2 <- rbind(temp,tbl2)
+
+tbl3 <- tbl %>%
+  .[parity %in% 3 & ind %in% 1] %>%
+ melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (ind = fifelse(tolower(variable) %in% "total",
+                               0, ind))] %>%
+  .[, .(BrthYear, ind, value)] %>%
+  unique() %>%
+  dcast(ind ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl3)
+# coln[1] <- ""
+
+tbl3 <- as.data.frame(sapply(tbl3, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl3) <- coln
+
+tbl3[,1] <- c("Total deliveries", "Induction attempted (%)")
+
+# add comma separator to total count
+tbl3[1,-1] <- as.character(sapply(as.numeric(tbl3[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("\u2265 2", rep("", ncol(tbl3)-1))))
+names(temp) <- names(tbl3)
+
+tbl3 <- rbind(temp,tbl3)
+
+tbl <- setDT(rbind(tbl1, tbl2, tbl3))
+
+# row.names(tbl) <- tbl[,1]
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-41"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-41",
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 140),
+          rowStyle = function(index){
+            if (index %in% (seq(1,nrow(tbl), by = 3))) list(
+              color = "black",
+              backgroundColor = "#E1E1E1",
+              fontWeight = "bold",
+              align = "center",
+              borderBottom = "#DDDDDD")
+          },
+          columns = list(
+            ind = colDef(
+              name = "Parity",
+              align = "left",
+              width = 140)
+          )
+) %>%
+  reactablefmtr::add_source("Note: The initiation of contractions in a pregnant woman who is not in labour to help her achieve a vaginal birth within 24 to 48 hours.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- "Parity"
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[7,1] <- "$\\geq$ 2"
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = "The initiation of contractions in a pregnant woman who is not in labour to help her achieve a vaginal birth within 24 to 48 hours.", threeparttable = TRUE)
+}
+```
+## Indication for labour induction by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-42}
+
+```{r plot42, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                LABOUR,
+                FAILED_INDUCTION,
+                DMINDUCT,
+                DLPARA)] %>%
+  .[#!is.na(DLPARA) |
+    !is.na(LABOUR) |
+    !is.na(FAILED_INDUCTION)] %>%
+  .[, `:=` (ind = fcase(
+    tolower(LABOUR) %in% "i" | tolower(FAILED_INDUCTION) %in% "y", 1,
+    default = 0
+    ),
+    ind_reason = fcase(
+    DMINDUCT %in% 4, 1,
+    DMINDUCT %in% 12, 2,
+    DMINDUCT %in% 5, 3,
+    DMINDUCT %in% c(2, 3, 6, 7, 9, 14, 16, 17, 18, 19, 20, 22, 27, 28), 4,
+    default = 5
+    ))] %>%
+  .[order(BrthYear, ind_reason)] %>%
+  .[ind %in% 1] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, ind_reason)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, ind_reason)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  ind_reason,
+  levels = c(1,2,3,4,5),
+  labels = c("Post dates",
+             "Hypertensive disease",
+             "PRoM without chorioamnionitis",
+             "Other medical reason",
+             "Other or unspecified")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1, "prop", ylab = "Proportion of induction attempts", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1, "prop", ylab = "Proportion of induction attempts", yacc = 1)
+    }
+```
+
+```{r tbl42}
+tbl <- dta[, .(BrthYear,
+                LABOUR,
+                FAILED_INDUCTION,
+                DMINDUCT,
+                DLPARA)] %>%
+  .[#!is.na(DLPARA) |
+    !is.na(LABOUR) |
+    !is.na(FAILED_INDUCTION)] %>%
+  .[, `:=` (ind = fcase(
+    tolower(LABOUR) %in% "i" | tolower(FAILED_INDUCTION) %in% "y", 1,
+    default = 0
+    ),
+    ind_reason = fcase(
+    DMINDUCT %in% 4, 1,
+    DMINDUCT %in% 12, 2,
+    DMINDUCT %in% 5, 3,
+    DMINDUCT %in% c(2, 3, 6, 7, 9, 14, 16, 17, 18, 19, 20, 22, 27, 28), 4,
+    default = 5
+    ))] %>%
+  .[order(BrthYear, ind_reason)] %>%
+  .[ind %in% 1] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, ind_reason)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (ind_reason = fifelse(tolower(variable) %in% "total",
+                               0, ind_reason))] %>%
+  .[, .(BrthYear, ind_reason, value)] %>%
+  unique() %>%
+  dcast(ind_reason ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%","%1.1f%%","%1.1f%%","%1.1f%%","%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total induction attempts", "Post dates", "Hypertensive disease", "PRoM\u1d43 without chorioamnionitis", "Other medical reason\u1d47", "Other or unspecified")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+# row.names(tbl) <- tbl[,1]
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-42"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-42",
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 150),
+          columns = list(
+            ind_reason = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("\u1d43 PRoM: Prelabour rupture of membranes.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source("\u1d47 Please see glossary under 'Indication for labour induction' for complete list.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(4, 5),1] <- c("PRoM\\textsuperscript{a} without chorioamnionitis",
+                      "Other medical reason\\textsuperscript{b}")
+    
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             escape = FALSE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(alphabet = c("PRoM: Prelabour rupture of membranes.",
+                                      "Please see Glossary under 'Indication for labour induction' for complete list."))
+}
+```
+
+## Medical augmentation of labour among women with spontaneous onset of labour by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-43}
+
+```{r plot43, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                AUGMENT)] %>%
+  .[!is.na(AUGMENT) &
+      !AUGMENT %in% ""] %>%
+  .[, `:=` (aug = fcase(
+    tolower(AUGMENT) %in% "y", 1,
+    default = 0
+    ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, aug)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, aug)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  aug,
+  levels = c(0,1),
+  labels = c("No",
+             "Augmented")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[!cat %in% "No"], "prop", ylab = "Proportion of spontaneous labour", yacc = 0.1)
+  
+  } else if(is_latex_output()){
+    
+plot_line_pdf(dta1[!cat %in% "No"], "prop", ylab = "Proportion of spontaneous labour", yacc = 1)
+  }
+```
+
+```{r tbl43}
+tbl <- dta[, .(BrthYear,
+                AUGMENT)] %>%
+  .[!is.na(AUGMENT) &
+      !AUGMENT %in% ""] %>%
+  .[, `:=` (aug = fcase(
+    tolower(AUGMENT) %in% "y", 1,
+    default = 0
+    ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, aug)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+      !aug %in% 0] %>%
+  .[, `:=` (aug = fifelse(tolower(variable) %in% "total",
+                               0, aug))] %>%
+  .[, .(BrthYear, aug, value)] %>%
+  unique() %>%
+  dcast(aug ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total spontaneous labour", "Augmented")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+# row.names(tbl) <- tbl[,1]
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-43"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-43",
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 150),
+          columns = list(
+            aug = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("Note: Use of oxytocin to improve contractions after labour has started spontaneously.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  kableExtra::kbl(tbl, format = "latex",
+             booktabs = TRUE,
+             linesep = "") %>%
+  # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = c("Use of oxytocin to improve contractions after labour has started spontaneously."), threeparttable = TRUE)
+}
+```
+
+## Use of regional anesthesia with vaginal delivery by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-44}
+
+```{r plot44, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                R010_00200, R010_00300, R010_00400, R010_00500, R010_00600, R010_00800, R010_00900, R010_01000,
+                R011_00200, R011_00300, R011_00400, R011_00500, R011_00600, R011_00800, R011_00900, R011_01000,
+                R012_00200, R012_00300, R012_00400, R012_00500, R012_00600, R012_00800, R012_00900, R012_01000,
+                MEPIS, MEPIC, MIFUS, MPCEA, MSEDN, MSPIN, MPUDL, MGENA,
+                DMMETHOD,
+                CONTCTID)] %>%
+  unique() %>%
+  .[, epi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00200","R010_00300", "R010_00400","R010_00500","R010_01000","R011_00200","R011_00300","R011_00400","R011_00500","R011_01000","R012_00200","R012_00300","R012_00400","R012_00500","R012_01000","MEPIS","MEPIC","MIFUS","MPCEA","MSEDN")] %>%
+  .[, spi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00900","R010_01000","R011_00900","R011_01000","R012_00900","R012_01000","MSPIN","MSEDN")] %>%
+  .[, dou := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_01000","R011_01000","R012_01000","MSEDN")] %>%
+  .[, pud := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00800","R011_00800","R012_00800","MPUDL")] %>%
+  .[, gen := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00600","R011_00600","R012_00600","MGENA")] %>%
+  .[, `:=` (anes = fcase(
+    epi >= 1 | spi >= 1 | dou >= 1 | pud >= 1 | gen >= 1, 1,
+    default = 0
+  ),
+  deliv = fcase(
+    # spontaneous vaginal
+    tolower(DMMETHOD) %in% c("biv", "spt"), 1,
+    # assisted vaginal
+    tolower(DMMETHOD) %in% c("vac", "low", "mid"), 2,
+    # c-section
+    tolower(DMMETHOD) %in% c("cst"), 3,
+    default = 4
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!deliv %in% 4] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, anes, deliv)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear, deliv)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, anes, deliv)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (anes = factor(
+  anes,
+  levels = c(0,1),
+  labels = c("No",
+             "Yes")),
+  cat = factor(
+    deliv,
+    levels = c(1,2,3),
+    labels = c("Spontaneous vaginal",
+               "Assisted vaginal",
+               "Caesarean section")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[!cat %in% "Caesarean section" &
+                   !anes %in% "No"], "prop", ylab = "Proportion of vaginal deliveries", yacc = 0.1)
+  
+} else if(is_latex_output()){
+  
+  plot_line_pdf(dta1[!cat %in% "Caesarean section" &
+                       !anes %in% "No"], "prop", ylab = "Proportion of vaginal deliveries", yacc = 1)
+}
+```
+
+```{r tbl44}
+tbl <- dta[, .(BrthYear,
+               R010_00200, R010_00300, R010_00400, R010_00500, R010_00600, R010_00800, R010_00900, R010_01000,
+               R011_00200, R011_00300, R011_00400, R011_00500, R011_00600, R011_00800, R011_00900, R011_01000,
+               R012_00200, R012_00300, R012_00400, R012_00500, R012_00600, R012_00800, R012_00900, R012_01000,
+               MEPIS, MEPIC, MIFUS, MPCEA, MSEDN, MSPIN, MPUDL, MGENA,
+               DMMETHOD,
+               CONTCTID)] %>%
+  unique() %>%
+  .[, epi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00200","R010_00300", "R010_00400","R010_00500","R010_01000","R011_00200","R011_00300","R011_00400","R011_00500","R011_01000","R012_00200","R012_00300","R012_00400","R012_00500","R012_01000","MEPIS","MEPIC","MIFUS","MPCEA","MSEDN")] %>%
+  .[, spi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00900","R010_01000","R011_00900","R011_01000","R012_00900","R012_01000","MSPIN","MSEDN")] %>%
+  .[, dou := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_01000","R011_01000","R012_01000","MSEDN")] %>%
+  .[, pud := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00800","R011_00800","R012_00800","MPUDL")] %>%
+  .[, gen := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00600","R011_00600","R012_00600","MGENA")] %>%
+  .[, `:=` (anes = fcase(
+    epi >= 1 | spi >= 1 | dou >= 1 | pud >= 1 | gen >= 1, 1,
+    default = 0
+  ),
+  deliv = fcase(
+    # spontaneous vaginal
+    tolower(DMMETHOD) %in% c("biv", "spt"), 1,
+    # assisted vaginal
+    tolower(DMMETHOD) %in% c("vac", "low", "mid"), 2,
+    # c-section
+    tolower(DMMETHOD) %in% c("cst"), 3,
+    default = 4
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!deliv %in% 4] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, anes, deliv)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, deliv)] %>%
+  .[, `:=` (rate = 100*count/total)]
+
+tbl1 <- tbl %>%
+  .[!anes %in% 0 &
+      !deliv %in% c(2,3)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (deliv = fifelse(tolower(variable) %in% "total",
+                            0, deliv))] %>%
+  .[, .(BrthYear, deliv, value)] %>%
+  unique() %>%
+  dcast(deliv ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl1)
+# coln[1] <- ""
+
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl1) <- coln
+
+tbl1[,1] <- c("Total deliveries", "Anesthesia (%)\u1d43")
+
+# add comma separator to total count
+tbl1[1,-1] <- as.character(sapply(as.numeric(tbl1[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Spontaneous", rep("", ncol(tbl1)-1))))
+names(temp) <- names(tbl1)
+
+tbl1 <- rbind(temp,tbl1)
+
+tbl2 <- tbl %>%
+  .[!anes %in% 0 &
+      !deliv %in% c(1,3)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (deliv = fifelse(tolower(variable) %in% "total",
+                            0, deliv))] %>%
+  .[, .(BrthYear, deliv, value)] %>%
+  unique() %>%
+  dcast(deliv ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl2)
+# coln[1] <- ""
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%")))
+# names(tbl2) <- coln
+
+tbl2[,1] <- c("Total deliveries", "Anesthesia (%)\u1d43")
+# add comma separator to total count
+tbl2[1,-1] <- as.character(sapply(as.numeric(tbl2[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Assisted", rep("", ncol(tbl1)-1))))
+names(temp) <- names(tbl2)
+
+tbl2 <- rbind(temp,tbl2)
+
+tbl <- setDT(rbind(tbl1, tbl2))
+
+# row.names(tbl) <- tbl[,1]
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-44"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-44",
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 150),
+          rowStyle = function(index){
+            if (index %in% (seq(1, nrow(tbl), by = 3))) list(
+              color = "black",
+              backgroundColor = "#E1E1E1",
+              fontWeight = "bold",
+              align = "center",
+              borderBottom = "#DDDDDD")
+          },
+          columns = list(
+            deliv = colDef(
+              name = "Type of delivery",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("\u1d43 Regional anesthesia including epidural, spinal, and/or pudendal anesthesia during labour and/or delivery.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- "Type of delivery"
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(3,6),1] <- c("Anesthesia ($\\%$)\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+                  booktabs = TRUE,
+                  escape = FALSE,
+                  linesep = "") %>%
+    # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    kableExtra::row_spec(c(1,4), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+  kableExtra::footnote(alphabet = c("Regional anesthesia including epidural, spinal, and/or pudendal anesthesia during labour and/or delivery."), threeparttable = TRUE)
+}
+```
+
+## Type of delivery by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-45}
+
+```{r plot45, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                DMMETHOD,
+                CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (deliv = fcase(
+    # spontaneous vaginal
+    tolower(DMMETHOD) %in% c("biv", "spt"), 1,
+    # assisted vaginal
+    tolower(DMMETHOD) %in% c("vac", "low", "mid"), 2,
+    # c-section
+    tolower(DMMETHOD) %in% c("cst"), 3,
+    default = 4
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!deliv %in% 4] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, deliv)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, deliv)] %>%
+  unique()
+
+dta1 <- dta1[, `:=` (cat = factor(
+  deliv,
+  levels = c(1,2,3),
+  labels = c("Spontaneous vaginal",
+             "Assisted vaginal",
+             "Caesarean section")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1, "prop", ylab = "Proportion of deliveries", yacc = 0.1)
+  
+} else if(is_latex_output()){
+  
+  plot_line_pdf(dta1, "prop", ylab = "Proportion of deliveries", yacc = 1)
+}
+```
+
+```{r tbl45}
+tbl <- dta[, .(BrthYear,
+               DMMETHOD,
+               CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (deliv = fcase(
+    # spontaneous vaginal
+    tolower(DMMETHOD) %in% c("biv", "spt"), 1,
+    # assisted vaginal
+    tolower(DMMETHOD) %in% c("vac", "low", "mid"), 2,
+    # c-section
+    tolower(DMMETHOD) %in% c("cst"), 3,
+    default = 4
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!deliv %in% 4] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, deliv)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (deliv = fifelse(tolower(variable) %in% "total",
+                            0, deliv))] %>%
+  .[, .(BrthYear, deliv, value)] %>%
+  unique() %>%
+  dcast(deliv ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total deliveries\u1d43", "Spontaneous vaginal", "Assisted vaginal", "Caesarean section")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+# row.names(tbl) <- tbl[,1]
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-45"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-45",
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 150),
+          columns = list(
+            deliv = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )
+) %>%
+  reactablefmtr::add_source("\u1d43 With known type of delivery.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[1,1] <- c("Total deliveries\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+                  booktabs = TRUE,
+                  escape = FALSE,
+                  linesep = "") %>%
+    # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(alphabet = c("With known type of delivery."), threeparttable = TRUE)
+}
+```
+
+## Stage of labour before Caesarean delivery by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-46}
+
+```{r plot46, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                DMCSSTAG,
+                DMMETHOD)] %>%
+  .[tolower(DMMETHOD) %in% "cst"] %>%
+  .[, `:=` (cs = fcase(
+    # no labour
+    tolower(DMCSSTAG) %in% c("cnol"), 1,
+    # 1st stage
+    tolower(DMCSSTAG) %in% c("c1st"), 2,
+    # 2nd stage
+    tolower(DMCSSTAG) %in% c("c2nd"), 3,
+    default = 4
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!cs %in% 4] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, cs)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, cs)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  cs,
+  levels = c(1,2,3),
+  labels = c("No labour",
+             "1\u02e2\u1d57 stage",
+             "2\u207f\u1d48 stage")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1, "prop", ylab = "Proportion of caesarean sections", yacc = 0.1)
+  
+} else if(is_latex_output()){
+  
+  plot_line_pdf(dta1, "prop", ylab = "Proportion of caesarean sections", yacc = 1)
+}
+```
+
+```{r tbl46}
+tbl <- dta[, .(BrthYear,
+               DMCSSTAG,
+               DMMETHOD)] %>%
+  .[tolower(DMMETHOD) %in% "cst"] %>%
+  .[, `:=` (cs = fcase(
+    # no labour
+    tolower(DMCSSTAG) %in% c("cnol"), 1,
+    # 1 stage
+    tolower(DMCSSTAG) %in% c("c1st"), 2,
+    # 2 stage
+    tolower(DMCSSTAG) %in% c("c2nd"), 3,
+    default = 4
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!cs %in% 4] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, cs)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (cs = fifelse(tolower(variable) %in% "total",
+                         -1, cs))] %>%
+  .[, .(BrthYear, cs, value)] %>%
+  unique() %>%
+  dcast(cs ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total caesarean sections", "No labour", "1\u02e2\u1d57 stage", "2\u207f\u1d48 stage")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+# row.names(tbl) <- tbl[,1]
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-46"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-46",
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 150),
+          columns = list(
+            cs = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("Note: The 1\u02e2\u1d57 stage is the period from the onset of labour until the cervix is fully dilated (10 cm). The 2\u207f\u1d48 stage is the period from 10 cm dilation of the cervix until the baby is delivered.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(3,4),1] <- c("$1^{st}$ stage",
+                     "$2^{nd}$ stage")
+  
+  kableExtra::kbl(tbl, format = "latex",
+                  booktabs = TRUE,
+                  escape = FALSE,
+                  linesep = "") %>%
+    # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = c("The $1^{st}$ stage is the period from the onset of labour until the cervix is fully dilated (10 cm). The $2^{nd}$ stage is the period from 10 cm dilation of the cervix until the baby is delivered."), threeparttable = TRUE, escape = FALSE)
+}
+```
+## Primary indication for Caesarean delivery by year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-47}
+
+```{r plot47, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                INDICCS1,
+               DMMETHOD)] %>%
+  .[tolower(DMMETHOD) %in% "cst"] %>%
+  .[, `:=` (cs = fcase(
+      toupper(INDICCS1) %in% c("PCS"), 1,
+      toupper(INDICCS1) %in% c("BCH","MLP","TLI"), 2,
+      toupper(INDICCS1) %in% c("DYS"), 3,
+      toupper(INDICCS1) %in% c("FDS"), 4,
+      toupper(INDICCS1) %in% c("CXD","DBT","HTD","HIV","HSV","ISO","PTD","UTS"), 5,
+      toupper(INDICCS1) %in% c("FGT","MAC","SFA","MTP","OFC"), 6,
+      toupper(INDICCS1) %in% c("APL","PLP","PLC"), 7,
+      toupper(INDICCS1) %in% c("AMA","MAT","PRM","FID","OOC","SUR","OTR","PMC",""), 8,
+      default = 9
+    ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!cs %in% 9] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, cs)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, cs)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  cs,
+  levels = c(1,2,3,4,5,6,7,8),
+  labels = c("Previous caesarean",
+             "Breech or other malpresentation",
+             "Labour dystocia",
+             "Fetal distress",
+             "Maternal conditions",
+             "Fetal conditions",
+             "Placenta or cord related",
+             "Other")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1, "prop", ylab = "Proportion of caesarean sections", yacc = 0.1)
+  
+} else if(is_latex_output()){
+  
+  plot_line_pdf(dta1, "prop", ylab = "Proportion of caesarean sections", yacc = 1)
+}
+```
+
+```{r tbl47}
+tbl <- dta[, .(BrthYear,
+               INDICCS1,
+               DMMETHOD)] %>%
+  .[tolower(DMMETHOD) %in% "cst"] %>%
+  .[, `:=` (cs = fcase(
+      toupper(INDICCS1) %in% c("PCS"), 1,
+      toupper(INDICCS1) %in% c("BCH","MLP","TLI"), 2,
+      toupper(INDICCS1) %in% c("DYS"), 3,
+      toupper(INDICCS1) %in% c("FDS"), 4,
+      toupper(INDICCS1) %in% c("CXD","DBT","HTD","HIV","HSV","ISO","PTD","UTS"), 5,
+      toupper(INDICCS1) %in% c("FGT","MAC","SFA","MTP","OFC"), 6,
+      toupper(INDICCS1) %in% c("APL","PLP","PLC"), 7,
+      toupper(INDICCS1) %in% c("AMA","MAT","PRM","FID","OOC","SUR","OTR","PMC","", " "), 8,
+      default = 9
+    ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!cs %in% 9] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, cs)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (cs = fifelse(tolower(variable) %in% "total",
+                               -1, cs))] %>%
+  .[, .(BrthYear, cs, value)] %>%
+  unique() %>%
+  dcast(cs ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%", "%1.1f%%","%1.1f%%","%1.1f%%","%1.1f%%","%1.1f%%","%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total caesarean sections", "Previous caesarean", "Breech or other malpresentation", "Labour dystocia", "Fetal distress", "Maternal conditions", "Fetal conditions", "Placenta or cord related", "Other")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+# row.names(tbl) <- tbl[,1]
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-47"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-47",
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 150),
+          columns = list(
+            cs = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          ))
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(3,4),1] <- c("$1^{st}$ stage",
+  #                    "$2^{nd}$ stage")
+  
+  kableExtra::kbl(tbl, format = "latex",
+                  booktabs = TRUE,
+                  escape = FALSE,
+                  linesep = "") %>%
+    # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) 
+    # kableExtra::footnote(general = c("The $1^{st}$ stage is the period from the onset of labour until the cervix is fully dilated (10 cm). The $2^{nd}$ stage is the period from 10 cm dilation of the cervix until the baby is delivered."), threeparttable = TRUE)
+}
+```
+
+## Caesarean delivery by Robson group and year, Nova Scotia, `r paste0(params$year1,"-",params$year2)` {#section-48}
+
+```{r plot48, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                DLNUMFET,
+                GA_BEST,
+                POSATDEL,
+                DLPARA,
+                LABOUR,
+                DLPRVCS,
+                DMMETHOD,
+               CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (robsongrp = fcase(
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "s", 1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "i", 2.1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "n", 2.2,
+  DLNUMFET %in% 1 & GA_BEST >= 37  & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "s", 3,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') &  DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "i", 4.1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "n", 4.2,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "s", 5.1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "i", 5.2,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "n", 5.3,
+  DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("bch","frb","ftb") & DLPARA %in% 0, 6,
+  DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("bch","frb","ftb") & DLPARA > 0, 7,
+  DLNUMFET > 1, 8,
+  DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("shl","tli"), 9,
+  DLNUMFET %in% 1 & GA_BEST < 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC','',' ', NA), 10,
+  default = 0
+  ))] %>%
+  .[, `:=` (robson = fcase(
+    robsongrp %in% 1, 1,
+    robsongrp >= 2 & robsongrp < 3, 2,
+    robsongrp %in% 3, 3,
+    robsongrp >= 4 & robsongrp < 5, 4,
+    robsongrp >= 5 & robsongrp < 6, 5,
+    robsongrp %in% 6 | robsongrp %in% 7, 6,
+    robsongrp %in% 8, 8,
+    robsongrp %in% 10, 10,
+    default = 0
+  ),
+  cs = fcase(
+    tolower(DMMETHOD) %in% "cst", 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  
+  .[, `:=` (count = .N), by = list(BrthYear, robson, cs)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear, robson)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  # remove missing
+  .[!robson %in% 0 &
+      !cs %in% 0] %>%
+  .[,.(BrthYear, prop, dlv, robson, cs)] %>%
+  unique()
+
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (robsonnam = fcase(
+  robson %in% 1, "(1) Nulliparous, singleton, cephalic, term, spontaneous labour",
+  robson %in% 2, "(2) Nulliparous, singleton, cephalic, term, induced or no labour",
+  robson %in% 3, "(3) Multiparous, singleton, cephalic, term, no previous CS, spontaneous labour",
+  robson %in% 4, "(4) Multiparous, singleton, cephalic, term, no previous CS, induced or no labour",
+  robson %in% 5, "(5) Multiparous, singleton, cephalic, term, previous CS",
+  robson %in% c(6,7), "(6-7) Nulliparous or multiparous, singleton, breech",
+  robson %in% 8,"(8) Multiple pregnancy",
+  robson %in% 10, "(10) Singleton, cephalic, preterm",
+  default = ""
+),
+                     cat = factor(
+  robson,
+  levels = c(1,2,3,4,5,6,8,10),
+  labels = c("1",
+             "2",
+             "3",
+             "4",
+             "5",
+             "6-7",
+             "8",
+             "10")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1, "prop", ylab = "Proportion of deliveries", yacc = 0.1)
+  
+} else if(is_latex_output()){
+  
+  plot_line_pdf(dta1, "prop", ylab = "Proportion of deliveries", yacc = 1)
+}
+```
+
+```{r tbl48}
+tbl <- dta[, .(BrthYear,
+                DLNUMFET,
+                GA_BEST,
+                POSATDEL,
+                DLPARA,
+                LABOUR,
+                DLPRVCS,
+                DMMETHOD,
+               CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (robsongrp = fcase(
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "s", 1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "i", 2.1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA %in% 0 & tolower(LABOUR) %in% "n", 2.2,
+  DLNUMFET %in% 1 & GA_BEST >= 37  & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "s", 3,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') &  DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "i", 4.1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS %in% 0 & tolower(LABOUR) %in% "n", 4.2,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "s", 5.1,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "i", 5.2,
+  DLNUMFET %in% 1 & GA_BEST >= 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC') & DLPARA > 0 & DLPRVCS > 0 & tolower(LABOUR) %in% "n", 5.3,
+  DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("bch","frb","ftb") & DLPARA %in% 0, 6,
+  DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("bch","frb","ftb") & DLPARA > 0, 7,
+  DLNUMFET > 1, 8,
+  DLNUMFET %in% 1 & tolower(POSATDEL) %in% c("shl","tli"), 9,
+  DLNUMFET %in% 1 & GA_BEST < 37 & toupper(POSATDEL) %in% c('VTX','POP','BOW','CPD','FAC','',' ', NA), 10,
+  default = 0
+  ))] %>%
+  .[, `:=` (robson = fcase(
+    robsongrp %in% 1, 1,
+    robsongrp >= 2 & robsongrp < 3, 2,
+    robsongrp %in% 3, 3,
+    robsongrp >= 4 & robsongrp < 5, 4,
+    robsongrp >= 5 & robsongrp < 6, 5,
+    robsongrp %in% 6 | robsongrp %in% 7, 6,
+    robsongrp %in% 8, 8,
+    robsongrp %in% 10, 10,
+    default = 0
+  ),
+  cs = fcase(
+    tolower(DMMETHOD) %in% "cst", 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!robson %in% 0 |
+      !cs %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, robson, cs)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, robson)] %>%
+  .[, `:=` (rate = 100*count/total)]
+
+tbl1 <- tbl %>%
+  .[robson %in% 1 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               -1, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl1)
+# coln[1] <- ""
+
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl1) <- coln
+
+tbl1[,1] <- c("Total deliveries", "Proportion of caesarean")
+
+# add comma separator to total count
+tbl1[1,-1] <- as.character(sapply(as.numeric(tbl1[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("(1) Nulliparous, singleton, cephalic, term, spontaneous labour", rep("", ncol(tbl1)-1))))
+names(temp) <- names(tbl1)
+
+tbl1 <- rbind(temp,tbl1)
+
+tbl2 <- tbl %>%
+  .[robson %in% 2 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl2)
+# coln[1] <- ""
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl2) <- coln
+
+tbl2[,1] <- c("Total deliveries", "Proportion of caesarean")
+
+# add comma separator to total count
+tbl2[1,-1] <- as.character(sapply(as.numeric(tbl2[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("(2) Nulliparous, singleton, cephalic, term, induced or no labour", rep("", ncol(tbl2)-1))))
+names(temp) <- names(tbl2)
+
+tbl2 <- rbind(temp,tbl2)
+
+tbl3 <- tbl %>%
+  .[robson %in% 3 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl3)
+# coln[1] <- ""
+
+tbl3 <- as.data.frame(sapply(tbl3, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl3) <- coln
+
+tbl3[,1] <- c("Total deliveries", "Proportion of caesarean")
+
+# add comma separator to total count
+tbl3[1,-1] <- as.character(sapply(as.numeric(tbl3[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("(3) Multiparous, singleton, cephalic, term, no previous CS, spontaneous labour", rep("", ncol(tbl3)-1))))
+names(temp) <- names(tbl3)
+
+tbl3 <- rbind(temp,tbl3)
+
+tbl4 <- tbl %>%
+  .[robson %in% 4 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl4)
+# coln[1] <- ""
+
+tbl4 <- as.data.frame(sapply(tbl4, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl4) <- coln
+
+tbl4[,1] <- c("Total deliveries", "Proportion of caesarean")
+
+# add comma separator to total count
+tbl4[1,-1] <- as.character(sapply(as.numeric(tbl4[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("(4) Multiparous, singleton, cephalic, term, no previous CS, induced or no labour", rep("", ncol(tbl4)-1))))
+names(temp) <- names(tbl4)
+
+tbl4 <- rbind(temp,tbl4)
+
+tbl5 <- tbl %>%
+  .[robson %in% 5 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl5)
+# coln[1] <- ""
+
+tbl5 <- as.data.frame(sapply(tbl5, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl5) <- coln
+
+tbl5[,1] <- c("Total deliveries", "Proportion of caesarean")
+
+# add comma separator to total count
+tbl5[1,-1] <- as.character(sapply(as.numeric(tbl5[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("(5) Multiparous, singleton, cephalic, term, previous CS", rep("", ncol(tbl5)-1))))
+names(temp) <- names(tbl5)
+
+tbl5 <- rbind(temp,tbl5)
+
+tbl6 <- tbl %>%
+  .[robson %in% 6 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl6)
+# coln[1] <- ""
+
+tbl6 <- as.data.frame(sapply(tbl6, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl6) <- coln
+
+tbl6[,1] <- c("Total deliveries", "Proportion of caesarean")
+
+# add comma separator to total count
+tbl6[1,-1] <- as.character(sapply(as.numeric(tbl6[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("(6-7) Nulliparous or multiparous, singleton, breech", rep("", ncol(tbl6)-1))))
+names(temp) <- names(tbl6)
+
+tbl6 <- rbind(temp,tbl6)
+
+tbl7 <- tbl %>%
+  .[robson %in% 8 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl7)
+# coln[1] <- ""
+
+tbl7 <- as.data.frame(sapply(tbl7, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl7) <- coln
+
+tbl7[,1] <- c("Total deliveries", "Proportion of caesarean")
+
+# add comma separator to total count
+tbl7[1,-1] <- as.character(sapply(as.numeric(tbl7[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("(8) Multiple pregnancy", rep("", ncol(tbl7)-1))))
+names(temp) <- names(tbl7)
+
+tbl7 <- rbind(temp,tbl7)
+
+tbl8 <- tbl %>%
+  .[robson %in% 10 &
+      cs %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (robson = fifelse(tolower(variable) %in% "total",
+                               0, robson))] %>%
+  .[, .(BrthYear, robson, value)] %>%
+  unique() %>%
+  dcast(robson ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl8)
+# coln[1] <- ""
+
+tbl8 <- as.data.frame(sapply(tbl8, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl8) <- coln
+
+tbl8[,1] <- c("Total deliveries", "Proportion of caesarean")
+
+# add comma separator to total count
+tbl8[1,-1] <- as.character(sapply(as.numeric(tbl8[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("(10) Singleton, cephalic, preterm", rep("", ncol(tbl8)-1))))
+names(temp) <- names(tbl8)
+
+tbl8 <- rbind(temp,tbl8)
+
+tbl <- setDT(rbind(tbl1, tbl2, tbl3, tbl4,
+                   tbl5, tbl6, tbl7, tbl8))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-48"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-48",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          rowStyle = function(index){
+            if (index %in% (seq(1,nrow(tbl), by = 3))) list(
+              color = "black",
+              backgroundColor = "#E1E1E1",
+              fontWeight = "bold",
+              align = "center",
+              borderBottom = "#DDDDDD")
+          },
+          columns = list(
+            robson = colDef(
+              name = "",
+              align = "left",
+              width = 160)
+          )) %>%
+  reactablefmtr::add_source(
+    source = reactablefmtr::html("Note: The Robson criteria for the classification of deliveries into ten mutually exclusive groups by maternal characteristics allows comparison of Caesarean section rates at regional and national levels. Please note that for the purposes of this report: 
+                            (1) group 6 (nulliparous breeches) and group 7 (multiparous breeches) are combined; and 
+                            (2) group 9 (abnormal lies excluding breeches) is omitted due to small numbers. [<a href='https://www.cambridge.org/core/journals/fetal-and-maternal-medicine-review/article/abs/classification-of-caesarean-sections/1489F66B41725CF7719525EC11655D4C'> Ref: Robson MS. Classification of caesarean sections. Fetal and Maternal Medicine Review 2001;12(1):23-39 </a>]."),
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- "Robson group"
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(3,4),1] <- c("$1^{st}$ stage",
+  #                    "$2^{nd}$ stage")
+  
+  kableExtra::kbl(tbl, format = "latex",
+                  booktabs = TRUE,
+                  escape = FALSE,
+                  linesep = "") %>%
+    # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    kableExtra::row_spec(c(1,4,7,10,13,16,19,22), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down",
+        "HOLD_position")) %>% 
+    kableExtra::footnote(general = c("The Robson criteria for the classification of deliveries into ten mutually exclusive groups by maternal characteristics allows comparison of Caesarean section rates at regional and national levels. Please note that for the purposes of this report: (1) group 6 (nulliparous breeches) and group 7 (multiparous breeches) are combined; and (2) group 9 (abnormal lies excluding breeches) is omitted due to small numbers. \\\\href{https://www.cambridge.org/core/journals/fetal-and-maternal-medicine-review/article/abs/classification-of-caesarean-sections/1489F66B41725CF7719525EC11655D4C}{Ref: Robson MS. Classification of caesarean sections. Fetal and Maternal Medicine Review 2001;12(1):23-39}."), threeparttable = TRUE, escape = FALSE)
+}
+```
+
+## Any labour among candidates for vaginal birth after Caesarean by year, `r paste0(params$year1,"-",params$year2)` {#section-49}
+
+```{r plot49, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                LABOUR,
+                DMMETHOD,
+                POSATDEL,
+                DLNUMFET,
+                DLPRVCS,
+                INDICCS1,
+                CONTCTID)] %>%
+  unique() %>%
+  .[, `:=` (lab = fcase(
+    !tolower(LABOUR) %in% "n", 1, 
+    default = 0
+  ),
+  vbac = fcase(
+    tolower(POSATDEL) %in% c("vtx", "pop", "", " ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!vbac %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, vbac, lab)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear, vbac)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, lab)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  lab,
+  levels = c(0,1),
+  labels = c("No labour and no induction attempt",
+             "Labour or induction attempt")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1, "prop", ylab = "Proportion of VBAC candidates", yacc = 0.1)
+  
+} else if(is_latex_output()){
+  
+  plot_line_pdf(dta1, "prop", ylab = "Proportion of VBAC candidates", yacc = 1)
+}
+```
+
+```{r tbl49}
+tbl <- dta[, .(BrthYear,
+               LABOUR,
+                POSATDEL,
+                DLNUMFET,
+                DLPRVCS,
+                INDICCS1)] %>%
+  .[, `:=` (lab = fcase(
+    !tolower(LABOUR) %in% "n", 1, 
+    default = 0
+  ),
+  vbac = fcase(
+    tolower(POSATDEL) %in% c("vtx", "pop", "", " ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!vbac %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, vbac, lab)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, vbac)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (lab = fifelse(tolower(variable) %in% "total",
+                               -1, lab))] %>%
+  .[, .(BrthYear, lab, value)] %>%
+  unique() %>%
+  dcast(lab ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total VBAC candidates", "No labour and no induction attempt", "Labour or induction attempt")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-49"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-49",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            lab = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source(
+    source = reactablefmtr::html("Note: For the purposes of this report, a candidate for vaginal birth after Caesarean (VBAC) is woman who has had no more than one previous Caesarean section delivery; whose current pregnancy is a singleton in vertex presentation; and who has no contraindications for labour. On an individual basis when more information is available, such as type of previous Caesarean delivery, other factors are taken into account and women with two previous Caesarean deliveries may be considered for VBAC. [<a href='https://pubmed.ncbi.nlm.nih.gov/16001462/'> Ref: Society of Obstetricians and Gynaecologists of Canada. Guidelines for vaginal birth after previous caesarean birth. SOGC clinical practice guidelines. Number 155, February 2005. International Journal of Gynaecology and Obstetrics 2005;89(3):319-31 </a>]."),
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(3,4),1] <- c("$1^{st}$ stage",
+  #                    "$2^{nd}$ stage")
+  
+  kableExtra::kbl(tbl, format = "latex",
+                  booktabs = TRUE,
+                  escape = FALSE,
+                  linesep = "") %>%
+    # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7,10,13,16,19,22), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(general = c("For the purposes of this report, a candidate for vaginal birth after Caesarean (VBAC) is woman who has had no more than one previous Caesarean section delivery; whose current pregnancy is a singleton in vertex presentation; and who has no contraindications for labour. On an individual basis when more information is available, such as type of previous Caesarean delivery, other factors are taken into account and women with two previous Caesarean deliveries may be considered for VBAC. \\\\href{https://pubmed.ncbi.nlm.nih.gov/16001462/}{Ref: Society of Obstetricians and Gynaecologists of Canada. Guidelines for vaginal birth after previous caesarean birth. SOGC clinical practice guidelines. Number 155, February 2005. International Journal of Gynaecology and Obstetrics 2005;89(3):319-31}."), threeparttable = TRUE, escape = FALSE)
+}
+```
+
+## Type of delivery among candidates for vaginal birth after Caesarean (VBAC) who had any labour by year, `r paste0(params$year1,"-",params$year2)` {#section-410}
+
+```{r plot410, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                LABOUR,
+                DMMETHOD,
+                POSATDEL,
+                DLNUMFET,
+                DLPRVCS,
+                INDICCS1)] %>%
+  .[, `:=` (lab = fcase(
+    !tolower(LABOUR) %in% "n", 1, 
+    default = 0
+  ),
+  vbac = fcase(
+    tolower(POSATDEL) %in% c("vtx", "pop", ""," ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    default = 0
+  ),
+  deliv = fcase(
+      # vaginal
+      tolower(DMMETHOD) %in% c("biv", "spt", "vac", "low", "mid"), 1,
+      # c-section
+      tolower(DMMETHOD) %in% c("cst"), 2,
+      default = 3
+    ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!lab %in% 0 &
+    !vbac %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lab, deliv)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear, lab)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, deliv)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  deliv,
+  levels = c(1,2),
+  labels = c("Vaginal delivery",
+             "Caesarean section")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1, "prop", ylab = "Proportion of women with labour or induction", yacc = 0.1)
+  
+} else if(is_latex_output()){
+  
+  plot_line_pdf(dta1, "prop", ylab = "Proportion of women with labour or induction", yacc = 1)
+}
+```
+
+```{r tbl410}
+tbl <- dta[, .(BrthYear,
+                LABOUR,
+                DMMETHOD,
+                POSATDEL,
+                DLNUMFET,
+                DLPRVCS,
+                INDICCS1)] %>%
+  .[, `:=` (lab = fcase(
+    !tolower(LABOUR) %in% "n", 1, 
+    default = 0
+  ),
+  vbac = fcase(
+    tolower(POSATDEL) %in% c("vtx", "pop", "", " ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    default = 0
+  ),
+  deliv = fcase(
+      # vaginal
+      tolower(DMMETHOD) %in% c("biv", "spt", "vac", "low", "mid"), 1,
+      # c-section
+      tolower(DMMETHOD) %in% c("cst"), 2,
+      default = 3
+    ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!lab %in% 0 &
+    !vbac %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lab, deliv)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, lab)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (deliv = fifelse(tolower(variable) %in% "total",
+                               0, deliv))] %>%
+  .[, .(BrthYear, deliv, value)] %>%
+  unique() %>%
+  dcast(deliv ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total women with labour or induction", "Vaginal delivery", "Caesarean section")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-410"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-410",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            deliv = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          ))
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(3,4),1] <- c("$1^{st}$ stage",
+  #                    "$2^{nd}$ stage")
+  
+  kableExtra::kbl(tbl, format = "latex",
+                  booktabs = TRUE,
+                  escape = FALSE,
+                  linesep = "") %>%
+    # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7,10,13,16,19,22), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position"))
+    # kableExtra::footnote(general = c("For the purposes of this report, a candidate for vaginal birth after Caesarean (VBAC) is woman who has had no more than one previous Caesarean section delivery; whose current pregnancy is a singleton in vertex presentation; and who has no contraindications for labour. On an individual basis when more information is available, such as type of previous Caesarean delivery, other factors are taken into account and women with two previous Caesarean deliveries may be considered for VBAC. \\\\href{https://pubmed.ncbi.nlm.nih.gov/16001462/}{Ref: Society of Obstetricians and Gynaecologists of Canada. Guidelines for vaginal birth after previous caesarean birth. SOGC clinical practice guidelines. Number 155, February 2005. International Journal of Gynaecology and Obstetrics 2005;89(3):319-31}."), threeparttable = TRUE, escape = FALSE)
+}
+```
+
+## Labour to 4 cm dilation among candidates for vaginal birth after Caesarean by year, `r paste0(params$year1,"-",params$year2)` {#section-411}
+
+```{r plot411, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                LABOUR,
+                DMMETHOD,
+                POSATDEL,
+                DLNUMFET,
+                DLPRVCS,
+                INDICCS1,
+                CDILCS)] %>%
+  .[, `:=` (vbac = fcase(
+    tolower(POSATDEL) %in% c("vtx", "pop", "", " ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    default = 0
+  ),
+  vbac4 = fcase(
+    !tolower(DMMETHOD) %in% c("cst") | CDILCS >= 4, 1,
+    tolower(DMMETHOD) %in% c("cst") & CDILCS < 4, 2,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!vbac4 %in% 0 &
+    !vbac %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, vbac4, vbac)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear, vbac)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, vbac4)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  vbac4,
+  levels = c(1,2),
+  labels = c("Dilation to 4 cm or induction attempt",
+             "Less than 4 cm and no induction attempt")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1, "prop", ylab = "Proportion of VBAC candidates", yacc = 0.1)
+  
+} else if(is_latex_output()){
+  
+  plot_line_pdf(dta1, "prop", ylab = "Proportion of VBAC candidates", yacc = 1)
+}
+```
+
+```{r tbl411}
+tbl <- dta[, .(BrthYear,
+                LABOUR,
+                DMMETHOD,
+                POSATDEL,
+                DLNUMFET,
+                DLPRVCS,
+                INDICCS1,
+                CDILCS)] %>%
+  .[, `:=` (vbac = fcase(
+    tolower(POSATDEL) %in% c("vtx", "pop", "", " ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    default = 0
+  ),
+  vbac4 = fcase(
+    !tolower(DMMETHOD) %in% c("cst") | CDILCS >= 4, 1,
+    tolower(DMMETHOD) %in% c("cst") & CDILCS < 4, 2,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!vbac4 %in% 0 &
+    !vbac %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, vbac4, vbac)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, vbac)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (vbac4 = fifelse(tolower(variable) %in% "total",
+                               0, vbac4))] %>%
+  .[, .(BrthYear, vbac4, value)] %>%
+  unique() %>%
+  dcast(vbac4 ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total VBAC candidates\u1d43", "Dilation to 4 cm or induction attempt", "Less than 4 cm and no induction attempt")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-411"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-411",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            vbac4 = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("\u1d43 VBAC candidates with known cervical dilation who reached 4 cm.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  ) %>%
+  reactablefmtr::add_source("Note: Women who are VBAC candidates and reach 4 cm cervical dilation may better represent those who have chosen to attempt a vaginal delivery. Intention to attempt a vaginal delivery is not recorded in the Atlee Database.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- ""
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  tbl[c(1),1] <- c("Total VBAC candidates\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+                  booktabs = TRUE,
+                  escape = FALSE,
+                  linesep = "") %>%
+    # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7,10,13,16,19,22), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(
+      general = c("Women who are VBAC candidates and reach 4 cm cervical dilation may better represent those who have chosen to attempt a vaginal delivery. Intention to attempt a vaginal delivery is not recorded in the Atlee Database.",
+      alphabet = c("VBAC candidates with known cervical dilation who reached 4 cm.")), threeparttable = TRUE)
+}
+```
+
+## Type of delivery among candidates for vaginal birth after Caesarean who had labour to 4 cm dilation by year, `r paste0(params$year1,"-",params$year2)` {#section-412}
+
+```{r plot412, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                LABOUR,
+                DMMETHOD,
+                POSATDEL,
+                DLNUMFET,
+                DLPRVCS,
+                INDICCS1,
+                CDILCS)] %>%
+  .[, `:=` (vbac = fcase(
+    tolower(POSATDEL) %in% c("vtx", "pop", "", " ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    default = 0
+  ),
+  vbac4 = fcase(
+    !tolower(DMMETHOD) %in% c("cst") | CDILCS >= 4, 1,
+    tolower(DMMETHOD) %in% c("cst") & CDILCS < 4, 2,
+    default = 0
+  ),
+  deliv = fcase(
+      # vaginal
+      tolower(DMMETHOD) %in% c("biv", "spt", "vac", "low", "mid"), 1,
+      # c-section
+      tolower(DMMETHOD) %in% c("cst"), 2,
+      default = 3
+    ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!vbac4 %in% c(0,2) &
+    !vbac %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, vbac4, deliv)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear, vbac4)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, deliv)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  deliv,
+  levels = c(1,2),
+  labels = c("Vaginal delivery",
+             "Caesarean section")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1, "prop", ylab = "Proportion with 4cm labour or induction", yacc = 0.1)
+  
+} else if(is_latex_output()){
+  
+  plot_line_pdf(dta1, "prop", ylab = "Proportion with 4cm labour or induction", yacc = 1)
+}
+```
+
+```{r tbl412}
+tbl <- dta[, .(BrthYear,
+                LABOUR,
+                DMMETHOD,
+                POSATDEL,
+                DLNUMFET,
+                DLPRVCS,
+                INDICCS1,
+                CDILCS)] %>%
+  .[, `:=` (lab = fcase(
+    !tolower(LABOUR) %in% "n", 1, 
+    default = 0
+  ),
+  vbac = fcase(
+    tolower(POSATDEL) %in% c("vtx", "pop", "", " ", NA) & DLNUMFET %in% 1 & DLPRVCS %in% 1 & !toupper(INDICCS1) %in% c("PLP","BCH","MLP","HSV","SFA","UTS","CXD","HIV"), 1,
+    default = 0
+  ),
+  vbac4 = fcase(
+    !tolower(DMMETHOD) %in% c("cst") | CDILCS >= 4, 1,
+    #tolower(DMMETHOD) %in% c("cst") & CDILCS < 4, 2,
+    default = 0
+  ),
+  deliv = fcase(
+      # vaginal
+      tolower(DMMETHOD) %in% c("biv", "spt", "vac", "low", "mid"), 1,
+      # c-section
+      tolower(DMMETHOD) %in% c("cst"), 2,
+      default = 3
+    ))] %>%
+  #unique() %>%
+  # remove missing
+  .[!vbac4 %in% c(0,2) &
+    !vbac %in% 0] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, lab, deliv)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, lab)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (deliv = fifelse(tolower(variable) %in% "total",
+                               0, deliv))] %>%
+  .[, .(BrthYear, deliv, value)] %>%
+  unique() %>%
+  dcast(deliv ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%", "%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total with 4 cm labour or induction", "Vaginal delivery", "Caesarean section")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-412"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-412",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            deliv = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          ))
+      ))
+} else if(is_latex_output()){
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  names(tbl)[1] <- ""
+
+  # tbl[c(1),1] <- c("Total VBAC candidates\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+                  booktabs = TRUE,
+                  escape = FALSE,
+                  linesep = "") %>%
+    # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7,10,13,16,19,22), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position"))
+    # kableExtra::footnote(
+    #   general = c("Women who are VBAC candidates and reach 4 cm cervical dilation may better represent those who have chosen to attempt a vaginal delivery. Intention to attempt a vaginal delivery is not recorded in the Atlee Database.",
+    #   alphabet = c("VBAC candidates with known cervical dilation who reached 4 cm.")), threeparttable = TRUE)
+}
+```
+
+## Episiotomy by parity and year, `r paste0(params$year1,"-",params$year2)` {#section-413}
+
+```{r plot413, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                DMMETHOD,
+                DMEPISIO,
+                DLPARA,
+               MOTHERID)] %>%
+  unique() %>%
+  .[, `:=` (deliv = fcase(
+      # vaginal
+      tolower(DMMETHOD) %in% c("biv", "spt", "vac", "low", "mid"), 1,
+      # c-section
+      tolower(DMMETHOD) %in% c("cst"), 2,
+      default = 3
+    ),
+    epi = fcase(
+      tolower(DMEPISIO) %in% c("md","ml"), 1,
+      default = 0
+    ),
+    parity = fcase(
+    DLPARA %in% 0 , 1,
+    DLPARA >= 1, 2,
+    default = 3
+    ))] %>%
+  #unique() %>%
+  # remove missing
+  .[deliv %in% 1 &
+    !is.na(DLPARA)] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, epi, parity)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear, parity)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, parity, epi)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  parity,
+  levels = c(1,2),
+  labels = c("Primiparous",
+             "Multiparous")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[epi %in% 1], "prop", ylab = "Proportion of vaginal deliveries", yacc = 0.1)
+  
+} else if(is_latex_output()){
+  
+  plot_line_pdf(dta1[epi %in% 1], "prop", ylab = "Proportion of vaginal deliveries", yacc = 1)
+}
+```
+
+```{r tbl413}
+tbl <-  dta[, .(BrthYear,
+                DMMETHOD,
+                DMEPISIO,
+                DLPARA,
+                MOTHERID)] %>%
+  unique() %>%
+  .[, `:=` (deliv = fcase(
+      # vaginal
+      tolower(DMMETHOD) %in% c("biv", "spt", "vac", "low", "mid"), 1,
+      # c-section
+      tolower(DMMETHOD) %in% c("cst"), 2,
+      default = 3
+    ),
+    epi = fcase(
+      tolower(DMEPISIO) %in% c("md","ml"), 1,
+      default = 0
+    ),
+    parity = fcase(
+    DLPARA %in% 0 , 1,
+    DLPARA >= 1, 2,
+    default = 3
+    ))] %>%
+  #unique() %>%
+  # remove missing
+  .[deliv %in% 1 &
+    !is.na(parity)] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, epi, parity)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear, parity)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  unique()
+
+tbl1 <- tbl %>%
+  .[epi %in% 1 &
+    parity %in% 1] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (parity = fifelse(tolower(variable) %in% "total",
+                               0, parity))] %>%
+  .[, .(BrthYear, parity, value)] %>%
+  unique() %>%
+  dcast(parity ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl1)
+# coln[1] <- ""
+
+tbl1 <- as.data.frame(sapply(tbl1, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl1) <- coln
+
+tbl1[,1] <- c("Total vaginal deliveries", "Episiotomy (%)")
+
+# add comma separator to total count
+tbl1[1,-1] <- as.character(sapply(as.numeric(tbl1[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Primiparous", rep("", ncol(tbl1)-1))))
+names(temp) <- names(tbl1)
+
+tbl1 <- rbind(temp,tbl1)
+
+tbl2 <- tbl %>%
+  .[epi %in% 1 &
+    parity %in% 2] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count"] %>%
+  .[, `:=` (parity = fifelse(tolower(variable) %in% "total",
+                               0, parity))] %>%
+  .[, .(BrthYear, parity, value)] %>%
+  unique() %>%
+  dcast(parity ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl2)
+# coln[1] <- ""
+
+tbl2 <- as.data.frame(sapply(tbl2, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl2) <- coln
+
+tbl2[,1] <- c("Total vaginal deliveries", "Episiotomy (%)")
+
+# add comma separator to total count
+tbl2[1,-1] <- as.character(sapply(as.numeric(tbl2[1,-1]), scales::comma_format(accuracy = 1)))
+
+temp <- as.data.frame(t(c("Multiparous", rep("", ncol(tbl2)-1))))
+names(temp) <- names(tbl2)
+
+tbl2 <- rbind(temp,tbl2)
+
+tbl <- setDT(rbind(tbl1, tbl2))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-413"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-413",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          rowStyle = function(index){
+            if (index %in% (seq(1,nrow(tbl), by = 3))) list(
+              color = "black",
+              backgroundColor = "#E1E1E1",
+              fontWeight = "bold",
+              align = "center",
+              borderBottom = "#DDDDDD")
+          },
+          columns = list(
+            parity = colDef(
+              name = "Parity",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("Note: An episiotomy is a mediolateral or midline incision made in the perineum during childbirth.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- "Parity"
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(1),1] <- c("Total VBAC candidates\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+                  booktabs = TRUE, escape = FALSE,
+                  linesep = "") %>%
+    # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    kableExtra::row_spec(c(1,4), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(
+      general = c("An episiotomy is a mediolateral or midline incision made in the perineum during childbirth."), threeparttable = TRUE)
+}
+```
+
+## Obstetrical intervention by year, `r paste0(params$year1,"-",params$year2)` {#section-414}
+
+```{r plot414, out.width= if (knitr::is_latex_output()){"90%"}}
+
+dta1 <- dta[, .(BrthYear,
+                LABOUR,
+                FAILED_INDUCTION,
+                AUGMENT,
+                DMEPISIO,
+                DMMETHOD,
+                R010_00200, R010_00300, R010_00400, R010_00500, R010_00600, R010_00800, R010_00900, R010_01000,
+                R011_00200, R011_00300, R011_00400, R011_00500, R011_00600, R011_00800, R011_00900, R011_01000,
+                R012_00200, R012_00300, R012_00400, R012_00500, R012_00600, R012_00800, R012_00900, R012_01000,
+                MEPIS, MEPIC, MIFUS, MPCEA, MSEDN, MSPIN, MPUDL, MGENA,
+               MOTHERID)] %>%
+  unique() %>%
+  .[, epi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00200","R010_00300", "R010_00400","R010_00500","R010_01000","R011_00200","R011_00300","R011_00400","R011_00500","R011_01000","R012_00200","R012_00300","R012_00400","R012_00500","R012_01000","MEPIS","MEPIC","MIFUS","MPCEA","MSEDN")] %>%
+  .[, spi := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00900","R010_01000","R011_00900","R011_01000","R012_00900","R012_01000","MSPIN","MSEDN")] %>%
+  .[, dou := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_01000","R011_01000","R012_01000","MSEDN")] %>%
+  .[, pud := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00800","R011_00800","R012_00800","MPUDL")] %>%
+  .[, gen := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00600","R011_00600","R012_00600","MGENA")] %>%
+  .[, `:=` (ind = fcase(
+    tolower(LABOUR) %in% "i" | tolower(FAILED_INDUCTION) %in% "y", 1,
+    default = 0
+  ),
+  augm = fcase(
+    tolower(AUGMENT) %in% "y", 1,
+    default = 0
+  ),
+  epis = fcase(
+      tolower(DMEPISIO) %in% c("md","ml"), 1,
+      default = 0
+    ),
+  op_del = fcase(
+    toupper(DMMETHOD) %in% c("VAC","LOW","MID","CST"), 1,
+    default = 0
+  ),
+  anes = fcase(
+    epi >= 1 | spi >= 1 | dou >= 1 | pud >= 1 | gen >= 1, 1,
+    default = 0
+    )
+)] %>%
+  .[, interv := rowSums(.SD, na.rm = TRUE), .SDcols = c("ind","augm","epis","op_del","anes")] %>%
+  .[, `:=` (obs_int = fcase(
+    interv >= 1, 1,
+    default = 0
+  ))] %>%
+  #unique() %>%
+  .[, `:=` (count = .N), by = list(BrthYear, obs_int)] %>%
+  .[, `:=` (dlv = .N), by = list(BrthYear)] %>%
+  .[, `:=` (prop = count/dlv)] %>%
+  .[,.(BrthYear, prop, dlv, obs_int)] %>%
+  unique()
+
+# age category using UNICODE codes
+dta1 <- dta1[, `:=` (cat = factor(
+  obs_int,
+  levels = c(0,1),
+  labels = c("No",
+             "Yes")))]
+
+if (knitr::is_html_output()){
+  
+  plot_line(dta1[cat %in% "Yes"], "prop", ylab = "Proportion of deliveries", yacc = 0.1)
+  
+} else if(is_latex_output()){
+  
+  plot_line_pdf(dta1[cat %in% "Yes"], "prop", ylab = "Proportion of deliveries", yacc = 1)
+}
+```
+
+```{r tbl414}
+tbl <-  dta[, .(BrthYear,
+                LABOUR,
+                FAILED_INDUCTION,
+                AUGMENT,
+                DMEPISIO,
+                DMMETHOD,
+                R010_00200, R010_00300, R010_00400, R010_00500, R010_00600, R010_00800, R010_00900, R010_01000,
+                R011_00200, R011_00300, R011_00400, R011_00500, R011_00600, R011_00800, R011_00900, R011_01000,
+                R012_00200, R012_00300, R012_00400, R012_00500, R012_00600, R012_00800, R012_00900, R012_01000,
+                MEPIS, MEPIC, MIFUS, MPCEA, MSEDN, MSPIN, MPUDL, MGENA,
+                MOTHERID)] %>%
+  unique() %>%
+  .[, epi := rowSums(.SD, na.rm = TRUE), .SDcols = c(
+    "R010_00200", "R010_00300", "R010_00400", "R010_00500", "R010_01000", 
+    "R011_00200", "R011_00300", "R011_00400", "R011_00500", "R011_01000", 
+    "R012_00200", "R012_00300", "R012_00400", "R012_00500", "R012_01000", 
+    "MEPIS","MEPIC","MIFUS","MPCEA","MSEDN")] %>%
+  .[, spi := rowSums(.SD, na.rm = TRUE), .SDcols = c(
+    "R010_00900", "R010_01000", 
+    "R011_00900", "R011_01000", 
+    "R012_00900", "R012_01000", 
+    "MSPIN", "MSEDN")] %>%
+  .[, dou := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_01000","R011_01000","R012_01000","MSEDN")] %>%
+  .[, pud := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00800","R011_00800","R012_00800","MPUDL")] %>%
+  .[, gen := rowSums(.SD, na.rm = TRUE), .SDcols = c("R010_00600","R011_00600","R012_00600","MGENA")] %>%
+  .[, `:=` (ind = fcase(
+    tolower(LABOUR) %in% "i" | tolower(FAILED_INDUCTION) %in% "y", 1,
+    default = 0
+  ),
+  augm = fcase(
+    tolower(AUGMENT) %in% "y", 1,
+    default = 0
+  ),
+  epis = fcase(
+      tolower(DMEPISIO) %in% c("md","ml"), 1,
+      default = 0
+    ),
+  op_del = fcase(
+    toupper(DMMETHOD) %in% c("VAC","LOW","MID","CST"), 1,
+    default = 0
+  ),
+  anes = fcase(
+    epi >= 1 | spi >= 1 | dou >= 1 | pud >= 1 | gen >=1, 1,
+    default = 0
+    )
+)] %>%
+  .[, interv := rowSums(.SD, na.rm = TRUE), .SDcols = c("ind","augm","epis","op_del","anes")] %>%
+  .[, `:=` (obs_int = fcase(
+    interv >= 1, 1,
+    default = 0
+  ))] %>%
+  .[, `:=` (count = .N), by = list(BrthYear, obs_int)] %>%
+  .[, `:=` (total = .N), by = list(BrthYear)] %>%
+  .[, `:=` (rate = 100*count/total)] %>%
+  melt(measure.vars = c("rate", "total", "count")) %>%
+  .[!tolower(variable) %in% "count" &
+    !obs_int %in% 0] %>%
+  .[, `:=` (obs_int = fifelse(tolower(variable) %in% "total",
+                               -1, obs_int))] %>%
+  .[, .(BrthYear, obs_int, value)] %>%
+  unique() %>%
+  dcast(obs_int ~ BrthYear, value.var = "value")
+
+# coln <- names(tbl)
+# coln[1] <- ""
+
+tbl <- as.data.frame(sapply(tbl, sprintf, fmt = c("%.0f", "%1.1f%%")))
+#names(tbl) <- coln
+
+tbl[,1] <- c("Total deliveries", "Obstetrical intervention (%)")
+
+# add comma separator to total count
+tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(accuracy = 1)))
+
+if (knitr::is_html_output()){
+htmltools::browsable(
+    tagList(
+      csvDownloadButton("tbl-414"),
+      reactable(tbl,
+          rownames = FALSE,
+          resizable = TRUE, 
+          onClick = "expand",
+          highlight = TRUE, 
+          compact = TRUE,
+          elementId = "tbl-414",
+          defaultPageSize = nrow(tbl),
+          defaultColDef = colDef(
+            align = "right",
+            vAlign = "center",
+            format = colFormat(
+              locales = "en-CA",
+              separators = TRUE),
+            style = list(fontSize = 14),
+            headerStyle = list(fontSize = 14),
+            minWidth = 55,
+            maxWidth = 180),
+          columns = list(
+            obs_int = colDef(
+              name = "",
+              align = "left",
+              width = 140)
+          )) %>%
+  reactablefmtr::add_source("Note: Obstetrical intervention includes the use of any of: induction, medical augmentation, anesthesia, Caesarean delivery, vaginal delivery involving the use of forceps and/or vacuum, or episiotomy.",
+                            font_size = 12,
+                            #font_weight = "bold"
+  )
+      ))
+} else if(is_latex_output()){
+  
+  names(tbl)[1] <- "Parity"
+  
+  tbl <- sapply(tbl, function(u) gsub("%","$\\\\%$", u))
+  
+  # tbl[c(1),1] <- c("Total VBAC candidates\\textsuperscript{a}")
+  
+  kableExtra::kbl(tbl, format = "latex",
+                  booktabs = TRUE,
+                  escape = FALSE,
+                  linesep = "") %>%
+    # add an hline before the total
+    # kableExtra::row_spec(nrow(tbl) - 1, hline_after = TRUE) %>%
+    kableExtra::row_spec(0, bold = TRUE) %>%
+    # kableExtra::row_spec(c(1,4,7,10,13,16,19,22), bold = TRUE, background = "#E1E1E1") %>%
+    # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE)
+    kableExtra::kable_styling(
+      #font_size = 8
+      latex_options = c("scale_down","HOLD_position")) %>% 
+    kableExtra::footnote(
+      general = c("Obstetrical intervention includes the use of any of: induction, medical augmentation, anesthesia, Caesarean delivery, vaginal delivery involving the use of forceps and/or vacuum, or episiotomy."), threeparttable = TRUE)
+}
+```

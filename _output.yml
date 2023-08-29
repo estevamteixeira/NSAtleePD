@@ -1,0 +1,35 @@
+bookdown::bs4_book:
+  # toc: true
+  theme:
+    primary: "#008D8B" #links  
+    base_font: 
+      google: 
+        family: Lato
+    heading_font:
+      google:
+        family: Montserrat
+        wght: 600
+    code_font:
+      google: 
+        family: Roboto Mono
+    bg: "#fefefe" #backgrounds
+    fg: "#000000" #fonts
+  template: style/bs4_book.html
+  css: style/style.css
+  includes:
+    before_body: style/big-image.html
+  sharing:
+    github: yes
+    facebook: no
+    twitter: yes
+    all: no
+bookdown::pdf_book:
+  toc: yes
+  includes:
+    in_header: latex/preamble.tex
+  template: latex/template.tex
+  pandoc_args: --top-level-division=chapter
+  keep_tex: yes
+  toc_depth: 4
+  toc_unnumbered: no
+  toc_appendix: yes
