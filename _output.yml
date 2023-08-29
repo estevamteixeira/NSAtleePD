@@ -1,4 +1,5 @@
 bookdown::bs4_book:
+  # toc: true
   theme:
     primary: "#009470" #links  
     base_font: 

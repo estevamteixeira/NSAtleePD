@@ -31,7 +31,7 @@ div.sourceCode {
   right: 0;
   height: 120px;
   /*background-image: url("images/books.jpg");*/
-  /*background-color: #3fb5bd;*/
+  background-color: #ebf3f2;
 }
 
 .hero-image {
@@ -60,7 +60,7 @@ div.sourceCode {
 /*------------ TOC --------------*/
 
 .book .book-summary {
-  background: white;
+  background: #ebf3f2;
   border-right: none;
 }
 
@@ -76,24 +76,37 @@ div.sourceCode {
 }
 
 .summary a:hover {
-  color: #3eaa70d9 !important;
+  color: #00706e !important;
 } 
 
-.book .book-summary ul.summary li.active>a { /*active TOC links*/
-  color: #379fa7 !important;
+/*active TOC links*/
+.book .book-summary ul.summary li.active>a { 
+  color: #5c9895 !important;
   border-left: solid 4px;
-  border-color: #379fa7;
+  border-color: #5c9895;
   padding-left: 11px !important;
 } 
 
-
-li.appendix span, li.part span { /* for TOC part names */
+/* for TOC part names */
+li.appendix span, li.part span { 
   margin-top: 1em;
-  color: #000000;
+  color: #00706e;
   opacity: .9 !important;
   text-transform: uppercase;
 }
 
-.part + li[data-level=""] { /* grabs first .chapter immediately after .part...but only those ch without numbers */
+/* grabs first .chapter immediately after .part...but only those ch without numbers */
+.part + li[data-level=""] { 
  text-transform: uppercase;
+}
+
+/*-----Body Links-------*/
+
+.book .book-body .page-wrapper .page-inner section.normal a {
+  color: #5c9895;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal a:hover {
+color: #00706e; /* darker color when hovering */
+text-decoration: none;
 }

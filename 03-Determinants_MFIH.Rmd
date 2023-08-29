@@ -14,8 +14,8 @@ knitr::opts_chunk$set(
   out.extra = "",
   out.width = '90%',
   fig.align = 'center',
-  eval.after = "fig.cap",
-  cache = TRUE
+  eval.after = "fig.cap"
+  #cache = TRUE
   )
 
 pckgs <- c('tidyverse', 'knitr', 'scales','janitor',
@@ -691,7 +691,7 @@ tbl[1,-1] <- as.character(sapply(as.numeric(tbl[1,-1]), scales::comma_format(acc
 # kableExtra::column_spec(1, border_right = TRUE, bold  = TRUE) %>%
 # kableExtra::kable_styling(font_size = 12) %>%
 # kableExtra::add_footnote(label = c("With known parity",
-#                                    "Note: Partnered denotes women who are married or in a common-law relationship."))
+#                                    "Note: Partnered denotes women who are 'married', who are in a 'common-law' relationship, or who have a 'partner, not othwerwise specified'. The 'partner' option started to be collected on April 1\u02e2\u1d57, 2020."))
 
 reactable(tbl,
           rownames = FALSE,
@@ -723,7 +723,7 @@ reactable(tbl,
                             font_size = 12,
                             #font_weight = "bold"
   ) %>%
-  reactablefmtr::add_source("Note: Partnered denotes women who are 'married', who are in a 'common-law' relationship, or who have a 'partner, not othwerwise specified'. The 'partner' option started to be collected on April 1\u02e2\u1d57, 2020.",
+  reactablefmtr::add_source("Note: Partnered denotes women who are married or in a common-law relationship.",
                             font_size = 12,
                             #font_weight = "bold"
   )
@@ -1662,7 +1662,7 @@ reactable(tbl,
                             font_size = 12,
                             #font_weight = "bold"
   ) %>%
-  reactablefmtr::add_source("Note: Body mass index (BMI) is calculated as weight in kilograms divided by the square of height in metres: Underweight, < 18.5 kg/m\u00b2; Normal weight, 18.5 to 24.9 kg/m\u00b2; Overweight, 25 to 29.9 kg/m\u00b2; Obese, \u2265 30 kg/m\u00b2.",
+  reactablefmtr::add_source("Note: Body mass index (BMI) is calculated as weight in kilograms divided by the square of height in metres: Underweight, < 18.5 kg/m\u00b2; Normal weight, 18.5 to 24.9 kg/m\u00b2; Overweight, 25 to 29.9 kg/m\u00b2; Obese, \u2265 30 kg/m\u00b2",
                             font_size = 12,
                             #font_weight = "bold"
   )

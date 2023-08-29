@@ -29,6 +29,12 @@ pacman::p_load(pckgs, character.only = TRUE)
 ## data input
 
 # add data
+# If it is a population health indicator, we typically want, all NS residents
+# (i.e. ProvNo=12)
+# If we're thinking about comparing facilities, we want all deliveries (births) in a (usually) Nova Scotia facility (i.e. a hospital number between 3 and 91)
+# If it's looking a regional hospital, it is usually restricted to This Regional
+# vs. All Other Regionals vs. The Whole Province (3<DLHosp<91)
+# All deliveries/births that are (a) not terminations [except where mother's life is in imminent danger], and (b) that fit one or more of the following criteria - (i) liveborn, (ii) >= 500g, (iii) 20 weeks G.A., (iv) co-multiple of an infant meeting the other criteria, and, of course (c) that occur in Nova Scotia, or elsewhere but to a resident of Nova Scotia [though, currently, we only look at Moncton Hospital]
 dta <- readr::read_csv("data/NSAtleePD.csv") %>%
   setDT() %>%
   .[data.table::between(BrthYear, params$year1, params$year2) &
@@ -1072,11 +1078,11 @@ dta1 <- dta[, .(BrthYear,
                 DMMETHOD)] %>%
   .[tolower(DMMETHOD) %in% "cst"] %>%
   .[, `:=` (cs = fcase(
-      # spontaneous vaginal
+      # no labour
       tolower(DMCSSTAG) %in% c("cnol"), 1,
-      # assisted vaginal
+      # 1st stage
       tolower(DMCSSTAG) %in% c("c1st"), 2,
-      # c-section
+      # 2nd stage
       tolower(DMCSSTAG) %in% c("c2nd"), 3,
       default = 4
     ))] %>%

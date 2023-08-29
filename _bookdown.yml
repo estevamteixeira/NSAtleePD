@@ -1,5 +1,5 @@
 book_filename: NSAtleePD
-new_session: yes
+new_session: yes # Each chapter is knitted as its own Rmd file
 delete_merged_file: true
 language:
   label:

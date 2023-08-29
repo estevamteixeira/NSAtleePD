@@ -329,7 +329,7 @@ dta1 <- dta[, .(BrthYear,
                 # gh any
                 MO13,
                 R014_00500, R014_01900,
-                # pre htn
+                # pre htn (hypertension)
                 R014_00700, R014_00800, 
                 MO10,
                 MI10, MI11, MI12, MI13, MI15, MCHTD,
@@ -581,13 +581,6 @@ dta1 <- tbl <- dta[, .(BrthYear,
                 # pre-eclampsia
                 R014_00600, R014_00800, R014_01800,
                 MO14, MO11, MO15,
-                # gh any
-                MO13,
-                R014_00500, R014_01900,
-                # pre htn
-                R014_00700, R014_00800, 
-                MO10,
-                MI10, MI11, MI12, MI13, MI15, MCHTD,
                CONTCTID)] %>%
   unique() %>%
   .[, `:=` (preeclamp = fcase(
@@ -1098,7 +1091,7 @@ dta1 <- dta[, .(BrthYear,
   .[, `:=` (lacer = fcase(
     # second degree
     MO701 >=1, 1,
-    # 3rd degree
+    # 3rd degree or 4th
     MO702 >=1 | MO70201 >=1 | MO70204 >=1 | MO70211 >=1 | MO70214 >=1 | MO70221 >=1 | MO70231 >=1 | MO70234 >=1 | MO70281 >=1 | MO70291 >=1 |
     MO703 >=1 | MO70301 >=1 | MO70304 >=1, 2, 
     default = 0
